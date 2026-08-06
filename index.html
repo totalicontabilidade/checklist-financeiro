@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checklist Financeiro — Bancos e Cartões | Totali Contabilidade</title>
+<meta name="description" content="Informe os bancos e as maquinetas de cartões da sua empresa para a Totali Contabilidade.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230b1f3a'/><path d='M17 33.5 27 43 47 21' fill='none' stroke='%23e2c766' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root{
+  --navy:#0b1f3a; --navy-600:#1d4372; --gold:#c9a227; --gold-soft:#e2c766;
+  --bg:#f4f6f9; --card:#fff; --line:#dde3ec; --text:#17202e; --muted:#63708a;
+  --ok:#0f7b52; --erro:#b3261e;
+  --raio:14px; --sombra:0 1px 2px rgba(11,31,58,.06), 0 10px 30px rgba(11,31,58,.08);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  font-size:16px; line-height:1.55;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ---------------- cabeçalho ---------------- */
+.topo{
+  background:linear-gradient(135deg,var(--navy),var(--navy-600));color:#fff;
+  padding:20px 16px;border-bottom:4px solid var(--gold);
+  padding-left:max(16px,env(safe-area-inset-left));
+  padding-right:max(16px,env(safe-area-inset-right));
+}
+.topo-in{max-width:760px;margin:0 auto}
+.marca-linha{display:flex;align-items:center;gap:11px}
+.logo{width:46px;height:46px;flex:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25))}
+.marca{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-soft);font-weight:700;line-height:1.35}
+.topo h1{margin:10px 0 4px;font-size:22px;font-weight:650;line-height:1.25}
+.topo p{margin:0;color:#c9d6ea;font-size:14.5px}
+@media(min-width:600px){
+  .topo{padding:26px 20px}
+  .logo{width:56px;height:56px}
+  .topo h1{font-size:26px}
+  .topo p{font-size:15px}
+}
+
+.wrap{
+  max-width:760px;margin:0 auto;padding:16px 14px 24px;
+  padding-left:max(14px,env(safe-area-inset-left));
+  padding-right:max(14px,env(safe-area-inset-right));
+}
+@media(min-width:600px){ .wrap{padding:22px 20px 40px} }
+
+/* ---------------- barra de passos ---------------- */
+.passos{display:flex;gap:6px;margin:6px 0 18px}
+.passo-item{flex:1;text-align:center}
+.passo-barra{height:6px;border-radius:99px;background:#dfe5ee;transition:background .25s}
+.passo-item.feito .passo-barra,.passo-item.ativo .passo-barra{background:var(--gold)}
+.passo-nome{font-size:12px;color:var(--muted);margin-top:6px;font-weight:600}
+.passo-item.ativo .passo-nome{color:var(--navy)}
+@media(max-width:360px){ .passo-nome{font-size:11px} }
+
+/* ---------------- cartão / seções ---------------- */
+.cartao{background:var(--card);border:1px solid var(--line);border-radius:var(--raio);box-shadow:var(--sombra);padding:18px 16px}
+@media(min-width:600px){ .cartao{padding:24px 22px} }
+h2{margin:0 0 4px;font-size:19px;color:var(--navy);line-height:1.3}
+@media(min-width:600px){ h2{font-size:21px} }
+.sub{margin:0 0 20px;color:var(--muted);font-size:14.5px}
+
+/* ---------------- campos ---------------- */
+.linha{margin-bottom:16px}
+.dupla{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.dupla{grid-template-columns:1fr}}
+label.rot{display:block;font-size:14px;font-weight:650;color:var(--navy);margin-bottom:6px}
+label.rot .opc{font-weight:400;color:var(--muted)}
+input,select,textarea{
+  width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;
+  font:inherit;font-size:16px;background:#fff;color:var(--text);
+  transition:border-color .12s, box-shadow .12s;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy-600);box-shadow:0 0 0 3px rgba(29,67,114,.13)}
+input.ruim,select.ruim{border-color:var(--erro);background:#fff8f7}
+textarea{min-height:86px;resize:vertical}
+.dica{font-size:13px;color:var(--muted);margin-top:6px}
+
+/* senha com botão de ver */
+.senha{position:relative}
+.senha input{padding-right:82px}
+.senha button{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  border:none;background:#eef2f8;color:var(--navy-600);font-size:13px;font-weight:700;
+  padding:8px 11px;border-radius:8px;
+}
+.senha button:hover{background:#e2e9f3}
+
+/* ---------------- opção grande (sim/não) ---------------- */
+.opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.opcao{
+  border:1.5px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;
+  background:#fff;text-align:center;font-weight:650;font-size:15px;color:var(--navy);
+  transition:border-color .12s, background .12s;
+}
+.opcao:hover{border-color:var(--navy-600)}
+.opcao.on{border-color:var(--gold);background:#fffaf0;box-shadow:inset 0 0 0 1px var(--gold)}
+.opcao small{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+
+/* ---------------- chips ---------------- */
+.chips{display:flex;flex-wrap:wrap;gap:9px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;width:0;height:0}
+.chip span{
+  display:block;padding:11px 16px;border:1.5px solid var(--line);border-radius:99px;
+  background:#fff;font-size:14.5px;font-weight:600;color:var(--navy);cursor:pointer;
+  transition:border-color .12s, background .12s;
+}
+.chip span:hover{border-color:var(--navy-600)}
+.chip input:checked + span{background:var(--navy);border-color:var(--navy);color:#fff}
+.chip input:focus-visible + span{box-shadow:0 0 0 3px rgba(29,67,114,.25)}
+
+/* ---------------- detalhes por item marcado ---------------- */
+.detalhe{border:1.5px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:#fcfdff}
+.detalhe .nome{font-size:14.5px;font-weight:700;color:var(--navy);margin-bottom:10px}
+.detalhe .linha:last-child,.detalhe .dupla:last-child{margin-bottom:0}
+
+/* ---------------- botões ---------------- */
+button{font:inherit;cursor:pointer;border-radius:10px}
+.nav{
+  display:flex;gap:10px;margin:18px -14px 0;padding:12px 14px;
+  position:sticky;bottom:0;z-index:5;
+  background:rgba(244,246,249,.94);backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);
+  padding-bottom:calc(12px + env(safe-area-inset-bottom));
+}
+@media(min-width:600px){
+  .nav{margin:22px 0 0;padding:14px 0;background:none;backdrop-filter:none;border-top:none;position:static}
+}
+.b{padding:16px 22px;border:none;font-weight:700;font-size:16px;min-height:52px}
+.b-primario{background:var(--navy);color:#fff;flex:1}
+.b-primario:hover{background:var(--navy-600)}
+.b-primario:disabled{opacity:.6;cursor:progress}
+.b-voltar{background:#fff;color:var(--navy);border:1.5px solid var(--line);font-weight:650}
+.b-voltar:hover{background:#f0f3f8}
+
+/* ---------------- avisos ---------------- */
+.aviso{border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:16px;border:1.5px solid}
+.info{background:#eef4fd;border-color:#cbdcf5;color:#16406e}
+.erro{background:#fdecea;border-color:#f3c3bf;color:var(--erro)}
+.oculto{display:none!important}
+
+/* ---------------- fim ---------------- */
+.fim{text-align:center;padding:40px 20px}
+.fim .ok{width:66px;height:66px;border-radius:50%;background:var(--ok);color:#fff;font-size:36px;line-height:66px;margin:0 auto 14px}
+.fim h2{font-size:23px}
+.protocolo{display:inline-block;margin:14px 0 6px;background:var(--navy);color:var(--gold-soft);font-family:Consolas,monospace;font-size:19px;letter-spacing:.08em;padding:11px 22px;border-radius:10px}
+.rodape{text-align:center;color:var(--muted);font-size:12.5px;margin-top:22px}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <div class="marca-linha">
+      <!-- Selo de conferido: mesma moldura arredondada e o mesmo dourado do site -->
+      <svg class="logo" viewBox="0 0 64 64" role="img" aria-label="Totali Contabilidade">
+        <rect x="5" y="5" width="54" height="54" rx="16"
+              fill="rgba(226,199,102,.12)" stroke="#c9a227" stroke-width="3.5"/>
+        <path d="M19 33.5 27.5 42 45.5 22.5" fill="none" stroke="#e2c766"
+              stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="marca">Totali<br>Contabilidade</div>
+    </div>
+    <h1>Checklist Financeiro</h1>
+    <p>Bancos e Maquinetas de cartões da sua empresa — leva 2 minutos.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="passos" id="passos" aria-hidden="true">
+    <div class="passo-item"><div class="passo-barra"></div><div class="passo-nome">Empresa</div></div>
+    <div class="passo-item"><div class="passo-barra"></div><div class="passo-nome">Bancos</div></div>
+    <div class="passo-item"><div class="passo-barra"></div><div class="passo-nome">Maquinetas</div></div>
+  </div>
+
+  <div id="alerta" class="aviso erro oculto" role="alert"></div>
+
+  <form id="form" novalidate autocomplete="off">
+
+    <!-- ============ PASSO 1 ============ -->
+    <section class="cartao" data-passo="1">
+      <h2>Sobre a sua empresa</h2>
+      <p class="sub">Para sabermos de quem é este checklist.</p>
+
+      <div class="linha">
+        <label class="rot" for="empresa">Nome da empresa</label>
+        <input id="empresa" required autocomplete="organization" placeholder="Razão social ou nome fantasia">
+      </div>
+
+      <div class="linha" style="margin-bottom:0">
+        <label class="rot" for="cnpj">CNPJ</label>
+        <input id="cnpj" required inputmode="numeric" placeholder="00.000.000/0000-00">
+      </div>
+    </section>
+
+    <!-- ============ PASSO 2 ============ -->
+    <section class="cartao oculto" data-passo="2">
+      <h2>Bancos da empresa</h2>
+      <p class="sub">A empresa tem conta em banco?</p>
+
+      <div class="opcoes">
+        <div class="opcao" data-grupo="banco" data-valor="sim">Tenho conta<small>vou marcar quais</small></div>
+        <div class="opcao" data-grupo="banco" data-valor="nao">Não tenho<small>nenhuma conta bancária</small></div>
+      </div>
+
+      <div id="areaBancos" class="oculto">
+        <p class="sub" style="margin-bottom:12px">Toque em <strong>todos</strong> os bancos onde a empresa tem conta.</p>
+
+        <div class="chips" id="chipsBancos"></div>
+
+        <div class="linha" style="margin:18px 0 0">
+          <label class="rot" for="bancoOutro">Tem conta em algum banco que não está na lista? <span class="opc">(opcional)</span></label>
+          <input id="bancoOutro" placeholder="Escreva o nome. Se for mais de um, separe por vírgula.">
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PASSO 3 ============ -->
+    <section class="cartao oculto" data-passo="3">
+      <h2>Maquinetas de cartões</h2>
+      <p class="sub">As maquinetas que você usa para <strong>receber</strong> dos seus clientes.</p>
+
+      <div class="opcoes">
+        <div class="opcao" data-grupo="maquina" data-valor="sim">Uso maquineta<small>vou marcar quais</small></div>
+        <div class="opcao" data-grupo="maquina" data-valor="nao">Não uso<small>nenhuma maquineta</small></div>
+      </div>
+
+      <div id="areaMaquinas" class="oculto">
+        <div class="chips" id="chipsMaquinas"></div>
+
+        <div class="linha" style="margin-top:18px">
+          <label class="rot" for="maquinaOutra">Usa outra maquineta fora da lista? <span class="opc">(opcional)</span></label>
+          <input id="maquinaOutra" placeholder="Qual?">
+        </div>
+
+        <div id="areaAcessos" class="oculto">
+          <div class="aviso info">
+            <strong>Por que pedimos o acesso?</strong> É só para baixar o relatório de vendas de cada maquineta
+            todo mês, sem precisar ficar cobrando você. Não movimentamos nada e não fazemos transferências.<br><br>
+            <strong>Dica de segurança:</strong> se a sua maquineta permite criar um <strong>usuário extra só para
+            consulta</strong> (Stone e Cielo permitem), prefira criar um e nos passar esse — assim sua senha
+            principal continua só com você. Se preferir não informar agora, deixe em branco e a gente combina depois.<br><br>
+            A Totali <strong>nunca</strong> pede senha do seu banco.
+          </div>
+          <div id="detalhesMaquinas"></div>
+        </div>
+
+        <div class="linha" style="margin-top:4px">
+          <label class="rot" for="obs">Quer nos contar mais alguma coisa? <span class="opc">(opcional)</span></label>
+          <textarea id="obs" placeholder="Ex.: vou encerrar a conta do Bradesco; a maquineta da Cielo é da loja antiga; tenho dúvida sobre..."></textarea>
+        </div>
+      </div>
+
+      <div id="obsSemMaquina" class="linha oculto" style="margin-bottom:0">
+        <label class="rot" for="obs2">Quer nos contar mais alguma coisa? <span class="opc">(opcional)</span></label>
+        <textarea id="obs2" placeholder="Ex.: vou encerrar a conta do Bradesco; tenho dúvida sobre..."></textarea>
+      </div>
+    </section>
+
+    <nav class="nav">
+      <button type="button" class="b b-voltar oculto" id="btnVoltar">Voltar</button>
+      <button type="button" class="b b-primario" id="btnAvancar">Continuar</button>
+    </nav>
+  </form>
+
+  <!-- ============ FIM ============ -->
+  <section class="cartao fim oculto" id="telaFim">
+    <div class="ok">✓</div>
+    <h2>Recebemos, obrigado!</h2>
+    <p class="sub" style="margin-bottom:0">A equipe da Totali já foi avisada e entra em contato se faltar algo.</p>
+    <div class="protocolo" id="protocolo"></div>
+    <p style="color:var(--muted);font-size:13px;margin:6px 0 0">Guarde este número de protocolo.</p>
+  </section>
+
+  <p class="rodape">Totali Contabilidade · seus dados são usados apenas para a contabilidade da sua empresa.</p>
+</main>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO — preencha antes de publicar
+   ============================================================ */
+
+// URL do app da web do Google Apps Script (ver README.md).
+// Enquanto estiver vazio, o formulário funciona em modo de teste
+// e baixa um arquivo .json em vez de gravar na planilha.
+const URL_PLANILHA = "https://script.google.com/macros/s/AKfycbwmAbGbuDbVlhguG5TS6_ewK1kVPD_lD1kTrTs5OLJVIX1vdWL19aFVbRpWj_PuWFGDew/exec";
+
+/* ============================================================ */
+
+// Em ordem alfabética — é assim que aparece para o cliente.
+const BANCOS = ["Banco do Brasil","Banco do Nordeste","Banese","Bradesco","C6 Bank",
+  "Caixa Econômica","InfinitePay","Inter","Itaú","Mercado Pago","Nubank","Santander","Sicredi"];
+
+const MAQUINAS = ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Convênio","Mulvi Pay",
+  "PagBank","Rede","Stone"];
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+
+let passo = 1;
+const TOTAL = 3;
+
+/* ---------------------------------------------- utilidades */
+
+function alerta(msg){
+  const a = $("#alerta");
+  a.className = "aviso erro";
+  a.innerHTML = msg;
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+function limparAlerta(){ $("#alerta").className = "aviso erro oculto"; }
+
+const digitos = (v) => (v||"").replace(/\D/g,"");
+
+function mascaraCNPJ(v){
+  return digitos(v).slice(0,14)
+    .replace(/^(\d{2})(\d)/,"$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/,"$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/,".$1/$2")
+    .replace(/(\d{4})(\d)/,"$1-$2");
+}
+function cnpjValido(valor){
+  const c = digitos(valor);
+  if(c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
+  const dv = (tam) => {
+    let soma = 0, peso = tam - 7;
+    for(let i=0;i<tam;i++){ soma += Number(c[i]) * peso--; if(peso < 2) peso = 9; }
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return dv(12) === Number(c[12]) && dv(13) === Number(c[13]);
+}
+function protocoloNovo(){
+  const d = new Date();
+  const ym = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}`;
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for(const b of crypto.getRandomValues(new Uint8Array(5))) s += letras[b % letras.length];
+  return `CF-${ym}-${s}`;
+}
+
+/* ---------------------------------------------- chips */
+
+function montarChips(container, lista, nome){
+  $(container).innerHTML = lista.map((v,i) => `
+    <label class="chip">
+      <input type="checkbox" name="${nome}" value="${v}" id="${nome}${i}">
+      <span>${v}</span>
+    </label>`).join("");
+}
+const chipsMarcados = (nome) => $$(`input[name="${nome}"]:checked`).map(c => c.value);
+
+/**
+ * Mantém um bloco de detalhes para cada chip marcado, preservando o que já foi
+ * digitado nos que continuam marcados.
+ */
+function sincronizar(nome, alvo, area, molde){
+  const marcados = chipsMarcados(nome);
+  const cont = $(alvo);
+  [...cont.children].forEach(el => { if(!marcados.includes(el.dataset.valor)) el.remove(); });
+  marcados.forEach(v => {
+    let el = cont.querySelector(`[data-valor="${CSS.escape(v)}"]`);
+    if(!el){
+      el = document.createElement("div");
+      el.className = "detalhe";
+      el.dataset.valor = v;
+      el.innerHTML = `<div class="nome">${v}</div>` + molde;
+    }
+    cont.appendChild(el); // reposiciona na ordem dos chips
+  });
+  $(area).classList.toggle("oculto", !marcados.length);
+}
+
+const MOLDE_MAQUINA = `
+  <div class="dupla">
+    <div>
+      <label class="rot">Login / usuário <span class="opc">(opcional)</span></label>
+      <input data-c="login" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="E-mail ou CNPJ de acesso">
+    </div>
+    <div>
+      <label class="rot">Senha <span class="opc">(opcional)</span></label>
+      <div class="senha">
+        <input type="password" data-c="senha" autocomplete="new-password" spellcheck="false" placeholder="••••••••">
+        <button type="button" class="ver">Mostrar</button>
+      </div>
+    </div>
+  </div>`;
+
+function atualizarMaquinas(){ sincronizar("maquina", "#detalhesMaquinas", "#areaAcessos", MOLDE_MAQUINA); }
+
+/* ---------------------------------------------- opção sim/não */
+
+const escolha = { banco:null, maquina:null };
+
+// Que área aparece para cada resposta: [seletor, resposta que a mostra]
+const AREAS = {
+  banco:   [ ["#areaBancos", "sim"] ],
+  maquina: [ ["#areaMaquinas", "sim"], ["#obsSemMaquina", "nao"] ]
+};
+
+$$(".opcao").forEach(op => {
+  op.addEventListener("click", () => {
+    const { grupo, valor } = op.dataset;
+    escolha[grupo] = valor;
+    $$(`.opcao[data-grupo="${grupo}"]`).forEach(o => o.classList.toggle("on", o === op));
+    AREAS[grupo].forEach(([sel, quando]) => $(sel).classList.toggle("oculto", valor !== quando));
+    limparAlerta();
+    salvar();
+  });
+});
+
+/* mostrar/ocultar senha */
+document.addEventListener("click", (e) => {
+  if(!e.target.classList.contains("ver")) return;
+  const campo = e.target.previousElementSibling;
+  const vendo = campo.type === "text";
+  campo.type = vendo ? "password" : "text";
+  e.target.textContent = vendo ? "Mostrar" : "Ocultar";
+});
+
+/* ---------------------------------------------- navegação */
+
+function mostrarPasso(n){
+  passo = n;
+  $$("[data-passo]").forEach(s => s.classList.toggle("oculto", Number(s.dataset.passo) !== n));
+  $$("#passos .passo-item").forEach((p,i) => {
+    p.classList.toggle("ativo", i + 1 === n);
+    p.classList.toggle("feito", i + 1 < n);
+  });
+  $("#btnVoltar").classList.toggle("oculto", n === 1);
+  $("#btnAvancar").textContent = n === TOTAL ? "Enviar checklist" : "Continuar";
+  limparAlerta();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function validarPasso(){
+  const secao = $(`[data-passo="${passo}"]`);
+  $$(".ruim").forEach(e => e.classList.remove("ruim"));
+
+  if(passo === 1){
+    let primeiro = null;
+    secao.querySelectorAll("[required]").forEach(el => {
+      if(!el.value.trim()){ el.classList.add("ruim"); if(!primeiro) primeiro = el; }
+    });
+    if(primeiro){ alerta("Faltou preencher os campos destacados em vermelho."); primeiro.focus(); return false; }
+    if(!cnpjValido($("#cnpj").value)){
+      $("#cnpj").classList.add("ruim"); $("#cnpj").focus();
+      alerta("Esse CNPJ não confere. Confira os números e tente de novo.");
+      return false;
+    }
+  }
+
+  if(passo === 2){
+    if(!escolha.banco){
+      alerta("Escolha uma das duas opções acima para continuar.");
+      return false;
+    }
+    if(escolha.banco === "sim" && !chipsMarcados("banco").length && !$("#bancoOutro").value.trim()){
+      alerta("Marque pelo menos um banco, ou escreva o nome no campo abaixo da lista.");
+      return false;
+    }
+  }
+
+  if(passo === 3){
+    if(!escolha.maquina){
+      alerta("Escolha uma das duas opções acima para continuar.");
+      return false;
+    }
+    if(escolha.maquina === "sim" && !chipsMarcados("maquina").length && !$("#maquinaOutra").value.trim()){
+      alerta("Marque pelo menos uma maquineta, ou escreva qual você usa.");
+      return false;
+    }
+  }
+  return true;
+}
+
+$("#btnVoltar").addEventListener("click", () => mostrarPasso(passo - 1));
+$("#btnAvancar").addEventListener("click", () => {
+  if(!validarPasso()) return;
+  if(passo < TOTAL){ mostrarPasso(passo + 1); salvar(); }
+  else enviar();
+});
+
+/* ---------------------------------------------- coleta */
+
+function lerDetalhes(alvo, chave){
+  return [...$(alvo).children].map(el => {
+    const o = {};
+    o[chave] = el.dataset.valor;
+    el.querySelectorAll("[data-c]").forEach(c => { o[c.dataset.c] = c.value.trim(); });
+    return o;
+  });
+}
+
+function coletar(){
+  const temBanco = escolha.banco === "sim";
+  const temMaquina = escolha.maquina === "sim";
+  return {
+    empresa: $("#empresa").value.trim(),
+    cnpj: $("#cnpj").value.trim(),
+    temBanco,
+    bancos: temBanco ? chipsMarcados("banco") : [],
+    bancoOutro: temBanco ? $("#bancoOutro").value.trim() : "",
+    temMaquina,
+    maquinas: temMaquina ? lerDetalhes("#detalhesMaquinas", "maquina") : [],
+    maquinaOutra: temMaquina ? $("#maquinaOutra").value.trim() : "",
+    observacoes: (temMaquina ? $("#obs").value : $("#obs2").value).trim()
+  };
+}
+
+/* ---------------------------------------------- rascunho local */
+
+const CHAVE = "checklist-totali";
+
+// Durante a restauração os cliques internos disparariam salvar() antes de os
+// detalhes existirem, gravando um rascunho vazio por cima do bom.
+let restaurando = false;
+
+function salvar(){
+  if(restaurando) return;
+  const d = coletar();
+  // Senha NUNCA vai para o rascunho: o aparelho pode ser compartilhado.
+  d.maquinas = d.maquinas.map(m => ({ maquina:m.maquina, login:m.login }));
+  try{ localStorage.setItem(CHAVE, JSON.stringify({ passo, escolha, dados:d })); }catch(e){}
+}
+
+function restaurar(){
+  let s;
+  try{ s = JSON.parse(localStorage.getItem(CHAVE) || "null"); }catch(e){ return; }
+  if(!s || !s.dados || !s.dados.empresa) return;
+  const d = s.dados;
+  restaurando = true;
+
+  $("#empresa").value = d.empresa || "";
+  $("#cnpj").value = d.cnpj || "";
+  $("#bancoOutro").value = d.bancoOutro || "";
+  $("#maquinaOutra").value = d.maquinaOutra || "";
+  $("#obs").value = d.observacoes || "";
+  $("#obs2").value = d.observacoes || "";
+
+  Object.keys(AREAS).forEach(grupo => {
+    const v = s.escolha && s.escolha[grupo];
+    if(v) $(`.opcao[data-grupo="${grupo}"][data-valor="${v}"]`).click();
+  });
+
+  marcarChips("banco", d.bancos || []);
+
+  marcarChips("maquina", (d.maquinas || []).map(m => m.maquina));
+  atualizarMaquinas();
+  (d.maquinas || []).forEach(m => preencher("#detalhesMaquinas", m.maquina, m));
+
+  restaurando = false;
+  mostrarPasso(Math.min(s.passo || 1, TOTAL));
+}
+
+function marcarChips(nome, valores){
+  $$(`input[name="${nome}"]`).forEach(c => { c.checked = valores.includes(c.value); });
+}
+
+function preencher(alvo, valor, dados){
+  const el = $(alvo).querySelector(`[data-valor="${CSS.escape(valor)}"]`);
+  if(!el) return;
+  el.querySelectorAll("[data-c]").forEach(c => { if(dados[c.dataset.c]) c.value = dados[c.dataset.c]; });
+}
+
+/* ---------------------------------------------- envio */
+
+async function enviar(){
+  limparAlerta();
+  const btn = $("#btnAvancar");
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+
+  const protocolo = protocoloNovo();
+  const dados = { protocolo, enviadoEm: new Date().toISOString(), ...coletar() };
+
+  try{
+    if(URL_PLANILHA){
+      // text/plain evita o "preflight" do CORS — o Apps Script lê o corpo em e.postData.contents
+      const res = await fetch(URL_PLANILHA, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(dados)
+      });
+      // fetch não falha sozinho em erro de HTTP, então conferimos a resposta.
+      let corpo = null;
+      try { corpo = await res.json(); } catch(e) { /* resposta ilegível por CORS: seguimos */ }
+      if(corpo && corpo.ok === false) throw new Error(corpo.erro || "a planilha recusou o envio");
+      if(!corpo && !res.ok) throw new Error("HTTP " + res.status);
+    } else {
+      baixarJSON(dados, protocolo + ".json");
+    }
+    localStorage.removeItem(CHAVE);
+    $("#form").classList.add("oculto");
+    $("#passos").classList.add("oculto");
+    $("#protocolo").textContent = protocolo;
+    $("#telaFim").classList.remove("oculto");
+    window.scrollTo({top:0, behavior:"smooth"});
+  }catch(e){
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = "Tentar enviar de novo";
+    alerta(`Não conseguimos enviar agora — pode ser a conexão. Toque em <b>Tentar enviar de novo</b>.<br>
+            Se continuar, fale com a Totali e informe o protocolo <b>${protocolo}</b>.
+            Seus dados continuam salvos aqui no aparelho.`);
+  }
+}
+
+function baixarJSON(obj, nome){
+  const url = URL.createObjectURL(new Blob([JSON.stringify(obj,null,2)],{type:"application/json"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = nome; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------------------------------------- início */
+
+montarChips("#chipsBancos", BANCOS, "banco");
+montarChips("#chipsMaquinas", MAQUINAS, "maquina");
+
+$("#cnpj").addEventListener("input", e => { e.target.value = mascaraCNPJ(e.target.value); });
+$("#chipsBancos").addEventListener("change", salvar);
+$("#chipsMaquinas").addEventListener("change", () => { atualizarMaquinas(); salvar(); });
+$("#form").addEventListener("input", salvar);
+$("#form").addEventListener("submit", e => e.preventDefault());
+
+mostrarPasso(1);
+restaurar();
+</script>
+</body>
+</html>
