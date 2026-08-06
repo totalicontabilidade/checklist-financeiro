@@ -8,7 +8,8 @@ numa **planilha do Google**.
 |---|---|
 | `index.html` | O formulário inteiro — HTML, CSS e JS num arquivo só. É o que vai pro GitHub Pages. |
 | `codigo-planilha.gs` | Código do Google Apps Script que recebe os envios e grava na planilha. |
-| `logo-totali.svg` | A logo solta (versão para fundo escuro e para fundo claro). |
+| `logo-totali-escuro.png` | A logo oficial para fundo escuro — é a que vai no cabeçalho. |
+| `logo-totali-claro.png` | A logo oficial para fundo claro. |
 | `servir.bat` | Sobe um servidor local para testar. |
 
 ## O que o formulário pergunta
