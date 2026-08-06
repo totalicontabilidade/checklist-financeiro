@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 64" width="512" height="256">
+  <rect width="64" height="64" fill="#0b1f3a"/>
+  <rect x="64" width="64" height="64" fill="#f4f6f9"/>
+
+  <!-- sobre o navy do cabeçalho -->
+  <g>
+    <rect x="5" y="5" width="54" height="54" rx="16" fill="rgba(226,199,102,.12)" stroke="#c9a227" stroke-width="3.5"/>
+    <path d="M19 33.5 27.5 42 45.5 22.5" fill="none" stroke="#e2c766" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- sobre fundo claro -->
+  <g transform="translate(64,0)">
+    <rect x="5" y="5" width="54" height="54" rx="16" fill="#0b1f3a" stroke="#0b1f3a" stroke-width="3.5"/>
+    <path d="M19 33.5 27.5 42 45.5 22.5" fill="none" stroke="#c9a227" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
