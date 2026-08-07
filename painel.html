@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel — Checklist Financeiro | Totali</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230b1f3a'/><path d='M17 33.5 27 43 47 21' fill='none' stroke='%23e2c766' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root{
+  --navy:#0b1f3a; --navy-600:#1d4372; --gold:#c9a227; --gold-soft:#e2c766;
+  --bg:#f4f6f9; --card:#fff; --line:#dde3ec; --text:#17202e; --muted:#63708a;
+  --ok:#0f7b52; --alerta:#a15c00; --erro:#b3261e;
+  --raio:14px; --sombra:0 1px 2px rgba(11,31,58,.06), 0 10px 30px rgba(11,31,58,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.55;
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+
+.topo{background:linear-gradient(135deg,var(--navy),var(--navy-600));color:#fff;
+  padding:16px 20px;border-bottom:4px solid var(--gold);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.topo h1{margin:0;font-size:18px;font-weight:650}
+.topo .marca{font-size:10.5px;letter-spacing:.2em;color:var(--gold-soft);font-weight:700}
+.topo .espaco{flex:1}
+.quem{font-size:13px;color:#c9d6ea}
+
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+.cartao{background:var(--card);border:1px solid var(--line);border-radius:var(--raio);
+  box-shadow:var(--sombra);padding:20px}
+
+label.rot{display:block;font-size:13.5px;font-weight:650;color:var(--navy);margin-bottom:6px}
+input,select,textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;
+  font:inherit;font-size:15px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:none;border-color:var(--navy-600);box-shadow:0 0 0 3px rgba(29,67,114,.13)}
+
+button{font:inherit;cursor:pointer;border-radius:9px}
+.b{background:var(--navy);color:#fff;border:none;padding:11px 20px;font-weight:700}
+.b:hover{background:var(--navy-600)}
+.b:disabled{opacity:.6;cursor:progress}
+.b2{background:#fff;color:var(--navy);border:1.5px solid var(--line);padding:10px 16px;font-weight:650}
+.b2:hover{background:#f0f3f8}
+
+.login{max-width:390px;margin:60px auto}
+.login h2{margin:0 0 4px;font-size:19px;color:var(--navy)}
+.login p.sub{margin:0 0 20px;color:var(--muted);font-size:14px}
+.login .linha{margin-bottom:14px}
+
+.barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.barra input,.barra select{width:auto;min-width:210px}
+.barra .espaco{flex:1}
+.contagem{color:var(--muted);font-size:13px}
+
+.rolagem{overflow:auto;max-height:64vh;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{position:sticky;top:0;background:#f0f3f8;color:var(--navy);text-align:left;
+  font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.clicavel:hover{background:#f7f9fc;cursor:pointer}
+
+.tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.tag-novo{background:#e7effc;color:#16406e}
+.tag-analise{background:#fdf1dc;color:var(--alerta)}
+.tag-concluido{background:#e9f7f0;color:var(--ok)}
+.tag-envio{background:#fdf1dc;color:var(--alerta)}
+.tag-acesso{background:#e7effc;color:#16406e}
+
+dialog{border:none;border-radius:var(--raio);padding:0;max-width:860px;width:94%;
+  box-shadow:0 20px 60px rgba(11,31,58,.3)}
+dialog::backdrop{background:rgba(11,31,58,.55)}
+.m-topo{background:var(--navy);color:#fff;padding:15px 22px;display:flex;justify-content:space-between;
+  align-items:center;gap:12px}
+.m-topo h3{margin:0;font-size:16.5px}
+.m-corpo{padding:22px;max-height:66vh;overflow:auto}
+.m-rodape{padding:13px 22px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+.m-corpo h4{margin:22px 0 8px;font-size:13.5px;color:var(--navy);border-bottom:1px solid var(--line);padding-bottom:5px}
+.m-corpo h4:first-child{margin-top:0}
+.kv{display:grid;grid-template-columns:190px 1fr;gap:4px 14px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+@media(max-width:560px){ .kv{grid-template-columns:1fr} .kv dt{margin-top:8px} }
+
+.aviso{border-radius:9px;padding:11px 14px;font-size:13.5px;margin-bottom:16px;border:1.5px solid}
+.info{background:#eef4fd;border-color:#cbdcf5;color:#16406e}
+.erro{background:#fdecea;border-color:#f3c3bf;color:var(--erro)}
+.oculto{display:none!important}
+.vazio{text-align:center;color:var(--muted);padding:30px}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div>
+    <div class="marca">TOTALI SOLUÇÕES CONTÁBEIS</div>
+    <h1>Painel — Checklist Financeiro</h1>
+  </div>
+  <div class="espaco"></div>
+  <span class="quem oculto" id="quem"></span>
+  <button type="button" class="b2 oculto" id="btnSair">Sair</button>
+</header>
+
+<main class="wrap">
+
+  <div id="alerta" class="aviso erro oculto" role="alert"></div>
+
+  <!-- ---------------- login ---------------- -->
+  <section class="cartao login" id="telaLogin">
+    <h2>Acesso restrito</h2>
+    <p class="sub">Use o e-mail e a senha que a Totali cadastrou para você.</p>
+    <form id="formLogin">
+      <div class="linha">
+        <label class="rot" for="email">E-mail</label>
+        <input type="email" id="email" autocomplete="username" required>
+      </div>
+      <div class="linha">
+        <label class="rot" for="senha">Senha</label>
+        <input type="password" id="senha" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="b" style="width:100%" id="btnEntrar">Entrar</button>
+    </form>
+  </section>
+
+  <!-- ---------------- painel ---------------- -->
+  <section id="telaPainel" class="oculto">
+    <div class="cartao">
+      <div class="barra">
+        <input type="text" id="busca" placeholder="Buscar por empresa, CNPJ ou protocolo...">
+        <select id="filtroStatus">
+          <option value="">Todos os status</option>
+          <option value="novo">Novo</option>
+          <option value="analise">Em análise</option>
+          <option value="concluido">Concluído</option>
+        </select>
+        <select id="filtroForma">
+          <option value="">Todas as formas de envio</option>
+          <option value="Informar os dados de acesso">Informou o acesso</option>
+          <option value="Enviar os documentos todo mês">Cliente envia</option>
+        </select>
+        <div class="espaco"></div>
+        <span class="contagem" id="contagem"></span>
+        <button type="button" class="b2" id="btnCsv">Exportar CSV</button>
+      </div>
+
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr>
+              <th>Protocolo</th><th>Empresa</th><th>CNPJ</th>
+              <th>Bancos</th><th>Maquinetas</th><th>Relatórios</th>
+              <th>Recebido</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="corpo"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="modal">
+  <div class="m-topo">
+    <h3 id="mTitulo">Detalhe</h3>
+    <button type="button" class="b2" id="btnFechar">Fechar</button>
+  </div>
+  <div class="m-corpo" id="mCorpo"></div>
+  <div class="m-rodape">
+    <button type="button" class="b2 oculto" id="btnTermo">Baixar termo (PDF)</button>
+    <button type="button" class="b2" data-status="novo">Marcar Novo</button>
+    <button type="button" class="b2" data-status="analise">Em análise</button>
+    <button type="button" class="b" data-status="concluido">Concluído</button>
+  </div>
+</dialog>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot, getDocs, getDoc,
+         doc, updateDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, getDownloadURL }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+
+function alerta(msg, tipo = "erro"){
+  const a = $("#alerta");
+  a.className = "aviso " + tipo;
+  a.textContent = msg;
+}
+const limparAlerta = () => $("#alerta").classList.add("oculto");
+
+if(!CONFIGURADO){
+  alerta("Firebase ainda não configurado. Preencha js/firebase-config.js antes de usar o painel.");
+  throw new Error("firebase-config.js não preenchido");
+}
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+let registros = [], atual = null, cancelar = null, ehAdmin = false;
+
+/* ---------------------------------------------- utilidades */
+
+function esc(v){
+  if(v === null || v === undefined || v === "") return "—";
+  return String(v).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+function dataBR(r){
+  const iso = r.criadoEm?.toDate?.()?.toISOString() || r.enviadoEm;
+  if(!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR",
+    { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+
+const ROTULO = { novo:"Novo", analise:"Em análise", concluido:"Concluído" };
+const CLASSE = { novo:"tag-novo", analise:"tag-analise", concluido:"tag-concluido" };
+const tagStatus = (s) => {
+  const k = ROTULO[s] ? s : "novo";
+  return `<span class="tag ${CLASSE[k]}">${ROTULO[k]}</span>`;
+};
+const tagForma = (f) => !f ? "—"
+  : f.indexOf("Enviar") === 0
+    ? '<span class="tag tag-envio">Cliente envia</span>'
+    : '<span class="tag tag-acesso">Acesso informado</span>';
+
+/* ---------------------------------------------- login */
+
+$("#formLogin").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  limparAlerta();
+  const btn = $("#btnEntrar");
+  btn.disabled = true; btn.textContent = "Entrando...";
+  try{
+    await signInWithEmailAndPassword(auth, $("#email").value.trim(), $("#senha").value);
+  }catch(err){
+    alerta("Não foi possível entrar. Confira e-mail e senha. (" + err.code + ")");
+  }finally{
+    btn.disabled = false; btn.textContent = "Entrar";
+  }
+});
+
+$("#btnSair").addEventListener("click", () => signOut(auth));
+
+onAuthStateChanged(auth, async (user) => {
+  if(!user){
+    if(cancelar){ cancelar(); cancelar = null; }
+    registros = []; ehAdmin = false;
+    $("#corpo").innerHTML = "";
+    $("#telaLogin").classList.remove("oculto");
+    $("#telaPainel").classList.add("oculto");
+    $("#btnSair").classList.add("oculto");
+    $("#quem").classList.add("oculto");
+    return;
+  }
+
+  // Ter conta no Firebase não basta: é preciso estar cadastrado em /usuarios.
+  let perfil = null;
+  try{
+    const d = await getDoc(doc(db, "usuarios", user.uid));
+    if(d.exists()) perfil = d.data();
+  }catch(err){ /* sem permissão vira "não cadastrado" */ }
+
+  if(!perfil){
+    await signOut(auth);
+    alerta("Este login existe, mas não tem acesso ao painel. Peça para a Totali liberar o seu usuário.");
+    return;
+  }
+
+  ehAdmin = perfil.papel === "admin";
+  $("#quem").textContent = (perfil.nome || user.email) + (ehAdmin ? " · admin" : "");
+  $("#quem").classList.remove("oculto");
+  $("#btnSair").classList.remove("oculto");
+  $("#telaLogin").classList.add("oculto");
+  $("#telaPainel").classList.remove("oculto");
+  $("#senha").value = "";
+  limparAlerta();
+  escutar();
+});
+
+/* ---------------------------------------------- listagem */
+
+function escutar(){
+  if(cancelar) return;
+  const q = query(collection(db, "checklists"), orderBy("criadoEm", "desc"));
+  cancelar = onSnapshot(q,
+    (snap) => { registros = snap.docs.map(d => ({ id:d.id, ...d.data() })); render(); },
+    (err) => alerta("Erro ao carregar os checklists: " + err.message));
+}
+
+function filtrados(){
+  const termo = $("#busca").value.trim().toLowerCase();
+  const status = $("#filtroStatus").value;
+  const forma = $("#filtroForma").value;
+  return registros.filter(r => {
+    if(status && (r.status || "novo") !== status) return false;
+    if(forma && r.formaDocumentos !== forma) return false;
+    if(!termo) return true;
+    return [r.protocolo, r.empresa?.nome, r.empresa?.cnpj].join(" ").toLowerCase().includes(termo);
+  });
+}
+
+function render(){
+  const lista = filtrados();
+  $("#contagem").textContent = `${lista.length} de ${registros.length} checklist(s)`;
+
+  if(!lista.length){
+    $("#corpo").innerHTML = `<tr><td colspan="8" class="vazio">Nenhum checklist encontrado.</td></tr>`;
+    return;
+  }
+
+  $("#corpo").innerHTML = lista.map(r => `
+    <tr class="clicavel" data-id="${r.id}">
+      <td style="font-family:Consolas,monospace">${esc(r.protocolo)}</td>
+      <td><strong>${esc(r.empresa?.nome)}</strong></td>
+      <td>${esc(r.empresa?.cnpj)}</td>
+      <td>${r.temBanco === false ? "—" : (r.bancos?.length || 0)}</td>
+      <td>${r.temMaquineta === false ? "—" : (r.maquinetas?.length || 0)}</td>
+      <td>${tagForma(r.formaDocumentos)}</td>
+      <td>${dataBR(r)}</td>
+      <td>${tagStatus(r.status)}</td>
+    </tr>`).join("");
+
+  $$("#corpo tr.clicavel").forEach(tr =>
+    tr.addEventListener("click", () => abrir(tr.dataset.id)));
+}
+
+$("#busca").addEventListener("input", render);
+$("#filtroStatus").addEventListener("change", render);
+$("#filtroForma").addEventListener("change", render);
+
+/* ---------------------------------------------- detalhe */
+
+const linhas = (pares) =>
+  `<dl class="kv">` + pares.map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("") + `</dl>`;
+
+async function abrir(id){
+  atual = registros.find(r => r.id === id);
+  if(!atual) return;
+  const r = atual;
+
+  let html = `<h4>Empresa</h4>` + linhas([
+    ["Razão social", esc(r.empresa?.nome)],
+    ["CNPJ", esc(r.empresa?.cnpj)],
+    ["Protocolo", esc(r.protocolo)],
+    ["Recebido em", dataBR(r)]
+  ]);
+
+  html += `<h4>Bancos</h4>`;
+  html += r.temBanco === false
+    ? `<p style="color:var(--muted)">Cliente informou que não tem conta bancária.</p>`
+    : linhas([
+        ["Bancos marcados", esc((r.bancos || []).join(", "))],
+        ["Outros bancos", esc(r.bancoOutro)]
+      ]);
+
+  html += `<h4>Maquinetas</h4>`;
+  html += r.temMaquineta === false
+    ? `<p style="color:var(--muted)">Cliente informou que não usa maquineta.</p>`
+    : linhas([
+        ["Maquinetas", esc((r.maquinetas || []).join(", "))],
+        ["Outra maquineta", esc(r.maquinetaOutra)],
+        ["Relatórios", tagForma(r.formaDocumentos)]
+      ]);
+
+  html += `<h4>Observações</h4><p>${esc(r.observacoes)}</p>`;
+
+  // Credenciais: só admin, e buscadas na hora — não ficam na listagem.
+  html += `<h4>Acessos das maquinetas</h4><div id="acessos">carregando...</div>`;
+
+  $("#mTitulo").textContent = `${r.protocolo} — ${r.empresa?.nome || ""}`;
+  $("#mCorpo").innerHTML = html;
+  $("#btnTermo").classList.toggle("oculto", !r.termo?.caminho);
+  $("#modal").showModal();
+
+  const alvo = $("#acessos");
+  if(!ehAdmin){
+    alvo.innerHTML = `<p style="color:var(--muted)">Visível apenas para administradores.</p>`;
+    return;
+  }
+  try{
+    const snap = await getDocs(collection(db, "checklists", r.id, "acessos"));
+    alvo.innerHTML = snap.empty
+      ? `<p style="color:var(--muted)">Nenhuma credencial informada — o cliente optou por enviar os documentos.</p>`
+      : linhas(snap.docs.flatMap(d => {
+          const a = d.data();
+          return [[esc(a.maquineta), `login <b>${esc(a.login)}</b> · senha <b>${esc(a.senha)}</b>`]];
+        }));
+  }catch(err){
+    alvo.innerHTML = `<p style="color:var(--erro)">Sem permissão para ver as credenciais.</p>`;
+  }
+}
+
+$("#btnFechar").addEventListener("click", () => $("#modal").close());
+
+$("#btnTermo").addEventListener("click", async () => {
+  if(!atual?.termo?.caminho) return;
+  try{
+    const url = await getDownloadURL(ref(storage, atual.termo.caminho));
+    window.open(url, "_blank", "noopener");
+  }catch(err){
+    alerta("Não consegui abrir o termo: " + err.message);
+  }
+});
+
+$$("[data-status]").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    if(!atual) return;
+    try{
+      await updateDoc(doc(db, "checklists", atual.id),
+        { status: btn.dataset.status, atualizadoEm: serverTimestamp() });
+      $("#modal").close();
+    }catch(err){
+      alerta("Não foi possível alterar o status: " + err.message);
+    }
+  });
+});
+
+/* ---------------------------------------------- CSV */
+
+const csv = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+$("#btnCsv").addEventListener("click", () => {
+  const lista = filtrados();
+  if(!lista.length) return;
+
+  const linhasCsv = [["Protocolo","Status","Recebido em","Empresa","CNPJ","Tem banco?","Bancos",
+    "Outros bancos","Usa maquineta?","Maquinetas","Outra maquineta","Relatórios","Observações"]];
+
+  for(const r of lista){
+    linhasCsv.push([
+      r.protocolo, ROTULO[r.status] || "Novo", dataBR(r),
+      r.empresa?.nome, r.empresa?.cnpj,
+      r.temBanco ? "Sim" : "Não", (r.bancos || []).join(", "), r.bancoOutro,
+      r.temMaquineta ? "Sim" : "Não", (r.maquinetas || []).join(", "), r.maquinetaOutra,
+      r.formaDocumentos, r.observacoes
+    ]);
+  }
+
+  // BOM + ponto-e-vírgula: abre certo no Excel em português.
+  const texto = "﻿" + linhasCsv.map(l => l.map(csv).join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([texto], { type:"text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "checklist-financeiro.csv"; a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>

@@ -297,17 +297,28 @@ button{font:inherit;cursor:pointer;border-radius:10px}
   <p class="rodape">Totali Soluções Contábeis · seus dados são usados apenas para a contabilidade da sua empresa.</p>
 </main>
 
-<script>
-/* ============================================================
-   CONFIGURAÇÃO — preencha antes de publicar
-   ============================================================ */
-
-// URL do app da web do Google Apps Script (ver README.md).
-// Enquanto estiver vazio, o formulário funciona em modo de teste
-// e baixa um arquivo .json em vez de gravar na planilha.
-const URL_PLANILHA = "https://script.google.com/macros/s/AKfycbwmAbGbuDbVlhguG5TS6_ewK1kVPD_lD1kTrTs5OLJVIX1vdWL19aFVbRpWj_PuWFGDew/exec";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadBytes }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { jsPDF } from "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm";
+import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
 
 /* ============================================================ */
+
+// Sem configuração o formulário roda em modo de teste: baixa um .json
+// e um PDF de exemplo, sem gravar nada na nuvem.
+let db = null, storage = null, auth = null;
+if (CONFIGURADO) {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+}
 
 // Em ordem alfabética — é assim que aparece para o cliente.
 const BANCOS = ["Banco do Brasil","Banco do Nordeste","Banese","Bradesco","C6 Bank",
@@ -626,23 +637,57 @@ async function enviar(){
   btn.textContent = "Enviando...";
 
   const protocolo = protocoloNovo();
-  const dados = { protocolo, enviadoEm: new Date().toISOString(), ...coletar() };
+  const bruto = coletar();
+  const agora = new Date();
+  const dados = { protocolo, enviadoEm: agora.toISOString(), ...bruto };
 
   try{
-    if(URL_PLANILHA){
-      // text/plain evita o "preflight" do CORS — o Apps Script lê o corpo em e.postData.contents
-      const res = await fetch(URL_PLANILHA, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(dados)
-      });
-      // fetch não falha sozinho em erro de HTTP, então conferimos a resposta.
-      let corpo = null;
-      try { corpo = await res.json(); } catch(e) { /* resposta ilegível por CORS: seguimos */ }
-      if(corpo && corpo.ok === false) throw new Error(corpo.erro || "a planilha recusou o envio");
-      if(!corpo && !res.ok) throw new Error("HTTP " + res.status);
+    // O termo só existe para quem se comprometeu a enviar os documentos.
+    const pdf = escolha.acesso === "envio" ? gerarTermoPDF(dados, agora) : null;
+
+    if(CONFIGURADO){
+      await signInAnonymously(auth);   // identifica o envio sem pedir nada ao cliente
+
+      const caminhoTermo = pdf
+        ? `termos/${agora.getFullYear()}/${protocolo}.pdf`
+        : "";
+
+      // O documento principal não guarda login nem senha: eles vão para a
+      // subcoleção "acessos", que só a administração enxerga.
+      const registro = {
+        protocolo,
+        status: "novo",
+        criadoEm: serverTimestamp(),
+        enviadoEm: dados.enviadoEm,
+        empresa: { nome: dados.empresa, cnpj: dados.cnpj },
+        temBanco: dados.temBanco,
+        bancos: dados.bancos,
+        bancoOutro: dados.bancoOutro,
+        temMaquineta: dados.temMaquina,
+        maquinetas: (dados.maquinas || []).map(m => m.maquina),
+        maquinetaOutra: dados.maquinaOutra,
+        formaDocumentos: dados.formaDocumentos,
+        observacoes: dados.observacoes,
+        termo: caminhoTermo ? { caminho: caminhoTermo, geradoEm: dados.enviadoEm } : null
+      };
+
+      const ref_ = await addDoc(collection(db, "checklists"), registro);
+
+      // Credenciais, uma por maquineta, só de quem optou por informar o acesso.
+      const comAcesso = (dados.maquinas || []).filter(m => m.login || m.senha);
+      for(const m of comAcesso){
+        await setDoc(doc(db, "checklists", ref_.id, "acessos", chaveSegura(m.maquina)), {
+          maquineta: m.maquina, login: m.login, senha: m.senha
+        });
+      }
+
+      if(pdf){
+        await uploadBytes(ref(storage, caminhoTermo), pdf.output("blob"),
+          { contentType: "application/pdf" });
+      }
     } else {
       baixarJSON(dados, protocolo + ".json");
+      if(pdf) pdf.save(nomeDoTermo(dados.empresa, agora));
     }
     localStorage.removeItem(CHAVE);
     $("#form").classList.add("oculto");
@@ -666,6 +711,128 @@ function baixarJSON(obj, nome){
   const a = document.createElement("a");
   a.href = url; a.download = nome; a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ------------------------------------- termo de compromisso (PDF) */
+
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho",
+  "julho","agosto","setembro","outubro","novembro","dezembro"];
+
+/** Identificador de documento sem "/", que o Firestore não aceita. */
+const chaveSegura = (s) => String(s).replace(/[\/\.#\[\]\*]/g, "-").trim() || "item";
+
+function nomeDoTermo(empresa, data){
+  const limpo = String(empresa || "SEM NOME").replace(/[\/\\:*?"<>|]/g, " ")
+    .replace(/\s+/g, " ").trim().toUpperCase().slice(0, 80);
+  const mm = String(data.getMonth() + 1).padStart(2, "0");
+  return `${limpo} - Compromisso Maquinetas - ${mm}-${data.getFullYear()}.pdf`;
+}
+
+function gerarTermoPDF(d, agora){
+  const NAVY = [11,31,58], GOLD = [201,162,39], TEXTO = [23,32,46], FRACO = [99,112,138];
+  const M = 16, LARG = 210 - M * 2;   // A4 com margem
+  const pdf = new jsPDF({ unit:"mm", format:"a4" });
+
+  const anterior = new Date(agora.getFullYear(), agora.getMonth() - 1, 1);
+  const mesAnterior = MESES[anterior.getMonth()] + " de " + anterior.getFullYear();
+  const porExtenso = agora.getDate() + " de " + MESES[agora.getMonth()] + " de " + agora.getFullYear();
+  const hora = String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
+
+  // ---- faixa do cabeçalho
+  pdf.setFillColor(...NAVY); pdf.rect(0, 0, 210, 30, "F");
+  pdf.setFillColor(...GOLD); pdf.rect(0, 30, 210, 1.6, "F");
+  pdf.setTextColor(226,199,102); pdf.setFont("helvetica","bold"); pdf.setFontSize(7.5);
+  pdf.text("TOTALI SOLUÇÕES CONTÁBEIS", M, 12, { charSpace: 1.1 });
+  pdf.setTextColor(255,255,255); pdf.setFontSize(13.5);
+  pdf.text("Termo de Compromisso", M, 20);
+  pdf.setFontSize(11); pdf.setFont("helvetica","normal");
+  pdf.text("Envio dos relatórios das maquinetas", M, 26);
+
+  let y = 43;
+
+  // ---- identificação
+  pdf.setDrawColor(221,227,236); pdf.setFillColor(252,253,255);
+  pdf.rect(M, y - 6, LARG, 26, "FD");
+  pdf.setFillColor(...GOLD); pdf.rect(M, y - 6, 1.2, 26, "F");
+  pdf.setTextColor(...TEXTO); pdf.setFontSize(9.5);
+  const campo = (rot, val, linha) => {
+    pdf.setFont("helvetica","bold"); pdf.text(rot, M + 5, linha);
+    pdf.setFont("helvetica","normal"); pdf.text(String(val || "—"), M + 30, linha);
+  };
+  campo("Empresa:", d.empresa, y);
+  campo("CNPJ:", d.cnpj, y + 6);
+  campo("Protocolo:", d.protocolo, y + 12);
+  campo("Emitido em:", porExtenso + ", às " + hora, y + 18);
+  y += 32;
+
+  // ---- corpo
+  const paragrafo = (txt, opcoes = {}) => {
+    pdf.setFont("helvetica", opcoes.negrito ? "bold" : "normal");
+    pdf.setFontSize(opcoes.tamanho || 10);
+    pdf.setTextColor(...(opcoes.cor || TEXTO));
+    const linhas = pdf.splitTextToSize(txt, opcoes.largura || LARG);
+    pdf.text(linhas, opcoes.x || M, y);
+    y += linhas.length * (opcoes.altura || 5) + (opcoes.depois === undefined ? 4 : opcoes.depois);
+  };
+
+  paragrafo("A empresa acima identificada declara que optou por enviar ela mesma os relatórios "
+    + "das suas máquinas de cartão, em vez de fornecer à Totali os dados de acesso aos portais "
+    + "das operadoras.");
+
+  paragrafo("Assim, a empresa se compromete a encaminhar à Totali Soluções Contábeis, todo mês, "
+    + "pelo Confi, os documentos abaixo, referentes a cada uma das suas maquinetas e sempre "
+    + "relativos ao MÊS ANTERIOR. O envio deste mês, por exemplo, diz respeito a "
+    + mesAnterior + ".");
+
+  ["Relatório de vendas;", "Relatório de recebimentos;", "Relatório de antecipações."]
+    .forEach((item, i) => {
+      pdf.setFont("helvetica","normal"); pdf.setFontSize(10); pdf.setTextColor(...TEXTO);
+      pdf.text((i + 1) + ".", M + 4, y);
+      pdf.text(item, M + 10, y);
+      y += 5.6;
+    });
+  y += 4;
+
+  const maquinetas = (d.maquinas || []).map(m => m.maquina)
+    .concat(d.maquinaOutra ? [d.maquinaOutra] : []).filter(String);
+  if(maquinetas.length){
+    paragrafo("Maquinetas declaradas: " + maquinetas.join(", "), { tamanho: 9, cor: FRACO });
+  }
+
+  // ---- cláusula de responsabilidade
+  const clausula = "O envio mensal desses relatórios é de responsabilidade exclusiva da empresa. "
+    + "Sem eles, a Totali não consegue registrar as vendas, as taxas e as antecipações, e a "
+    + "escrituração do período fica retida. Caso o atraso ou a ausência do envio resulte em perda "
+    + "de prazo, entrega em atraso, retificação, multa ou qualquer outra penalidade, a empresa "
+    + "declara-se ciente de que a responsabilidade é sua, não cabendo imputá-la à Totali.";
+  pdf.setFont("helvetica","normal"); pdf.setFontSize(9.5);
+  const linhasClausula = pdf.splitTextToSize(clausula, LARG - 10);
+  const alturaCaixa = linhasClausula.length * 4.8 + 13;
+  pdf.setDrawColor(...GOLD); pdf.setFillColor(255,250,240);
+  pdf.rect(M, y - 5, LARG, alturaCaixa, "FD");
+  pdf.setFont("helvetica","bold"); pdf.setTextColor(...TEXTO);
+  pdf.text("Responsabilidade pelos prazos", M + 5, y + 1);
+  pdf.setFont("helvetica","normal");
+  pdf.text(linhasClausula, M + 5, y + 7);
+  y += alturaCaixa + 6;
+
+  paragrafo("Se em algum momento o envio mensal se tornar inviável, a empresa deve comunicar a "
+    + "Totali para que se passe ao acesso direto aos portais das operadoras.");
+
+  // ---- ciência eletrônica (no lugar da assinatura)
+  pdf.setDrawColor(221,227,236); pdf.line(M, y, 210 - M, y);
+  y += 7;
+  paragrafo("Ciência eletrônica", { negrito: true, tamanho: 10 });
+  paragrafo("A empresa deu ciência deste termo por meio eletrônico, ao concluir o Checklist "
+    + "Financeiro em " + porExtenso + ", às " + hora + ", sob o protocolo " + d.protocolo + ". "
+    + "O aceite eletrônico dispensa assinatura física e tem a mesma validade, nos termos do "
+    + "art. 10, § 2º, da MP 2.200-2/2001.", { tamanho: 9.5, cor: FRACO, altura: 4.8 });
+
+  pdf.setFontSize(8); pdf.setTextColor(...FRACO);
+  pdf.text("Documento gerado automaticamente pelo Checklist Financeiro — Totali Soluções Contábeis.",
+    M, 285);
+
+  return pdf;
 }
 
 /* ---------------------------------------------- início */

@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Regras do Firestore — Checklist Financeiro (Totali Soluções Contábeis)
+//
+// Modelo de acesso:
+//  - O cliente preenche o formulário sem cadastro. Ele é autenticado de forma
+//    anônima só para o envio, e por isso consegue CRIAR, mas nunca ler nem alterar.
+//  - A equipe da Totali só enxerga se o usuário existir em /usuarios/{uid}.
+//    Ter conta no Firebase não basta: alguém precisa cadastrar a pessoa ali.
+//  - Login e senha das maquinetas ficam numa subcoleção separada, visível
+//    apenas para quem tem papel "admin".
+//
+// Cole este conteúdo em: Firestore Database > Regras > Publicar.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function ehEquipe() {
+      return request.auth != null
+             && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function ehAdmin() {
+      return ehEquipe()
+             && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'admin';
+    }
+
+    match /checklists/{id} {
+
+      // Envio do formulário. Anônimo serve, mas tem de estar autenticado —
+      // isso impede envio por script sem passar pelo app.
+      allow create: if request.auth != null
+                    && request.resource.data.status == 'novo'
+                    && request.resource.data.protocolo is string
+                    && request.resource.data.empresa.nome is string
+                    && request.resource.data.empresa.nome.size() > 2
+                    && request.resource.data.empresa.cnpj is string
+                    && request.resource.data.keys().hasAll(
+                         ['protocolo','status','empresa','bancos','maquinetas','formaDocumentos']);
+
+      allow read: if ehEquipe();
+
+      // A equipe só mexe no acompanhamento, nunca no que o cliente respondeu.
+      allow update: if ehEquipe()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status','anotacaoInterna','atualizadoEm']);
+
+      allow delete: if ehAdmin();
+
+      // Credenciais das maquinetas — o dado mais sensível do sistema.
+      match /acessos/{maquineta} {
+        allow create: if request.auth != null;
+        allow read:   if ehAdmin();
+        allow update, delete: if ehAdmin();
+      }
+    }
+
+    // Quem pode entrar no painel. Criado e removido pelo console.
+    match /usuarios/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

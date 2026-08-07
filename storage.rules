@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Regras do Storage — termos de compromisso em PDF.
+//
+// O cliente envia o próprio termo no momento do checklist (autenticado
+// anonimamente) e nunca mais toca nele. Só a equipe da Totali lê.
+//
+// Cole em: Storage > Regras > Publicar.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function ehEquipe() {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/usuarios/$(request.auth.uid));
+    }
+
+    match /termos/{ano}/{arquivo} {
+
+      allow read: if ehEquipe();
+
+      // Só criação: um termo já gravado não pode ser substituído nem apagado.
+      allow create: if request.auth != null
+                    && resource == null
+                    && request.resource.size < 2 * 1024 * 1024
+                    && request.resource.contentType == 'application/pdf';
+
+      allow update, delete: if false;
+    }
+
+    match /{tudo=**} {
+      allow read, write: if false;
+    }
+  }
+}
