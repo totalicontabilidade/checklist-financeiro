@@ -19,7 +19,8 @@ const ABA_BANCOS = 'Bancos';
 const ABA_ACESSOS = 'Acessos das maquinetas';
 
 const CAB_RESPOSTAS = ['Protocolo', 'Recebido em', 'Empresa', 'CNPJ', 'Tem banco?', 'Bancos',
-  'Outros bancos', 'Usa maquineta?', 'Maquinetas', 'Outra maquineta', 'Observações'];
+  'Outros bancos', 'Usa maquineta?', 'Maquinetas', 'Outra maquineta',
+  'Relatórios das maquinetas', 'Observações'];
 
 const CAB_BANCOS = ['Protocolo', 'Empresa', 'CNPJ', 'Banco'];
 
@@ -48,6 +49,7 @@ function doPost(e) {
       d.temMaquina ? 'Sim' : 'Não',
       maquinas.map(function (m) { return m.maquina; }).join(', '),
       d.maquinaOutra,
+      d.formaDocumentos,
       d.observacoes
     ]);
 

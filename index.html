@@ -231,16 +231,33 @@ button{font:inherit;cursor:pointer;border-radius:10px}
           <input id="maquinaOutra" placeholder="Qual?">
         </div>
 
+        <div class="linha" style="margin-top:22px">
+          <label class="rot" style="margin-bottom:10px">Todo mês precisamos do relatório de vendas de cada maquineta. Como prefere?</label>
+          <div class="opcoes" style="margin-bottom:0">
+            <div class="opcao" data-grupo="acesso" data-valor="dados">Informo o acesso<small>a Totali baixa sozinha</small></div>
+            <div class="opcao" data-grupo="acesso" data-valor="envio">Eu mesmo envio<small>me comprometo a mandar</small></div>
+          </div>
+        </div>
+
         <div id="areaAcessos" class="oculto">
           <div class="aviso info">
-            <strong>Por que pedimos o acesso?</strong> É só para baixar o relatório de vendas de cada maquineta
+            <strong>Para que serve o acesso?</strong> Só para baixar o relatório de vendas de cada maquineta
             todo mês, sem precisar ficar cobrando você. Não movimentamos nada e não fazemos transferências.<br><br>
             <strong>Dica de segurança:</strong> se a sua maquineta permite criar um <strong>usuário extra só para
             consulta</strong> (Stone e Cielo permitem), prefira criar um e nos passar esse — assim sua senha
-            principal continua só com você. Se preferir não informar agora, deixe em branco e a gente combina depois.<br><br>
+            principal continua só com você.<br><br>
             A Totali <strong>nunca</strong> pede senha do seu banco.
           </div>
           <div id="detalhesMaquinas"></div>
+        </div>
+
+        <div id="areaCompromisso" class="oculto">
+          <div class="aviso info">
+            <strong>Combinado.</strong> Então você se compromete a enviar à Totali, <strong>todo mês</strong>,
+            o relatório de vendas de cada maquineta que marcou acima.<br><br>
+            Sem esses relatórios não conseguimos lançar suas vendas nem as taxas, e o fechamento do mês fica parado.
+            Se em algum momento ficar difícil, é só avisar que a gente troca para o acesso direto.
+          </div>
         </div>
 
         <div class="linha" style="margin-top:4px">
@@ -270,7 +287,7 @@ button{font:inherit;cursor:pointer;border-radius:10px}
     <p style="color:var(--muted);font-size:13px;margin:6px 0 0">Guarde este número de protocolo.</p>
   </section>
 
-  <p class="rodape">Totali Contabilidade · seus dados são usados apenas para a contabilidade da sua empresa.</p>
+  <p class="rodape">Totali Soluções Contábeis · seus dados são usados apenas para a contabilidade da sua empresa.</p>
 </main>
 
 <script>
@@ -287,7 +304,8 @@ const URL_PLANILHA = "https://script.google.com/macros/s/AKfycbwmAbGbuDbVlhguG5T
 
 // Em ordem alfabética — é assim que aparece para o cliente.
 const BANCOS = ["Banco do Brasil","Banco do Nordeste","Banese","Bradesco","C6 Bank",
-  "Caixa Econômica","InfinitePay","Inter","Itaú","Mercado Pago","Nubank","Santander","Sicredi"];
+  "Caixa Econômica","Cora","InfinitePay","Inter","Itaú","Mercado Pago","Nubank","PagBank",
+  "Santander","Sicredi","Stone"];
 
 const MAQUINAS = ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Convênio","Mulvi Pay",
   "PagBank","Rede","Stone"];
@@ -384,16 +402,27 @@ const MOLDE_MAQUINA = `
     </div>
   </div>`;
 
-function atualizarMaquinas(){ sincronizar("maquina", "#detalhesMaquinas", "#areaAcessos", MOLDE_MAQUINA); }
+function atualizarMaquinas(){
+  sincronizar("maquina", "#detalhesMaquinas", "#areaAcessos", MOLDE_MAQUINA);
+  aplicarEscolhaAcesso();
+}
+
+/** Os campos de acesso só aparecem se houver maquineta marcada E o cliente optar por informar o acesso. */
+function aplicarEscolhaAcesso(){
+  const temMaquineta = chipsMarcados("maquina").length > 0;
+  $("#areaAcessos").classList.toggle("oculto", !(temMaquineta && escolha.acesso === "dados"));
+  $("#areaCompromisso").classList.toggle("oculto", escolha.acesso !== "envio");
+}
 
 /* ---------------------------------------------- opção sim/não */
 
-const escolha = { banco:null, maquina:null };
+const escolha = { banco:null, maquina:null, acesso:null };
 
 // Que área aparece para cada resposta: [seletor, resposta que a mostra]
 const AREAS = {
   banco:   [ ["#areaBancos", "sim"] ],
-  maquina: [ ["#areaMaquinas", "sim"], ["#obsSemMaquina", "nao"] ]
+  maquina: [ ["#areaMaquinas", "sim"], ["#obsSemMaquina", "nao"] ],
+  acesso:  []   // depende também dos chips, então quem resolve é aplicarEscolhaAcesso()
 };
 
 $$(".opcao").forEach(op => {
@@ -402,6 +431,7 @@ $$(".opcao").forEach(op => {
     escolha[grupo] = valor;
     $$(`.opcao[data-grupo="${grupo}"]`).forEach(o => o.classList.toggle("on", o === op));
     AREAS[grupo].forEach(([sel, quando]) => $(sel).classList.toggle("oculto", valor !== quando));
+    aplicarEscolhaAcesso();
     limparAlerta();
     salvar();
   });
@@ -464,9 +494,15 @@ function validarPasso(){
       alerta("Escolha uma das duas opções acima para continuar.");
       return false;
     }
-    if(escolha.maquina === "sim" && !chipsMarcados("maquina").length && !$("#maquinaOutra").value.trim()){
-      alerta("Marque pelo menos uma maquineta, ou escreva qual você usa.");
-      return false;
+    if(escolha.maquina === "sim"){
+      if(!chipsMarcados("maquina").length && !$("#maquinaOutra").value.trim()){
+        alerta("Marque pelo menos uma maquineta, ou escreva qual você usa.");
+        return false;
+      }
+      if(!escolha.acesso){
+        alerta("Escolha como vamos receber o relatório de vendas todo mês: você informa o acesso ou envia os documentos.");
+        return false;
+      }
     }
   }
   return true;
@@ -490,9 +526,21 @@ function lerDetalhes(alvo, chave){
   });
 }
 
+const ROTULO_ACESSO = {
+  dados: "Informar os dados de acesso",
+  envio: "Enviar os documentos todo mês"
+};
+
 function coletar(){
   const temBanco = escolha.banco === "sim";
   const temMaquina = escolha.maquina === "sim";
+
+  // Se o cliente optou por enviar os documentos, login e senha nem entram no envio,
+  // mesmo que ele tenha digitado antes de trocar de opção.
+  let maquinas = temMaquina ? lerDetalhes("#detalhesMaquinas", "maquina") : [];
+  if(escolha.acesso !== "dados")
+    maquinas = maquinas.map(m => ({ maquina: m.maquina, login: "", senha: "" }));
+
   return {
     empresa: $("#empresa").value.trim(),
     cnpj: $("#cnpj").value.trim(),
@@ -500,8 +548,9 @@ function coletar(){
     bancos: temBanco ? chipsMarcados("banco") : [],
     bancoOutro: temBanco ? $("#bancoOutro").value.trim() : "",
     temMaquina,
-    maquinas: temMaquina ? lerDetalhes("#detalhesMaquinas", "maquina") : [],
+    maquinas,
     maquinaOutra: temMaquina ? $("#maquinaOutra").value.trim() : "",
+    formaDocumentos: temMaquina ? (ROTULO_ACESSO[escolha.acesso] || "") : "",
     observacoes: (temMaquina ? $("#obs").value : $("#obs2").value).trim()
   };
 }
