@@ -285,6 +285,13 @@ button{font:inherit;cursor:pointer;border-radius:10px}
     <p class="sub" style="margin-bottom:0">A equipe da Totali já foi avisada e entra em contato se faltar algo.</p>
     <div class="protocolo" id="protocolo"></div>
     <p style="color:var(--muted);font-size:13px;margin:6px 0 0">Guarde este número de protocolo.</p>
+
+    <div id="lembreteCompromisso" class="aviso info oculto" style="text-align:left;margin:24px 0 0">
+      <strong>Lembrete do seu compromisso.</strong> Como você optou por enviar os documentos,
+      todo mês precisamos receber pelo Confi, de cada maquineta: <strong>relatório de vendas</strong>,
+      <strong>relatório de recebimentos</strong> e <strong>relatório de antecipações</strong>.
+      Geramos um termo com esse combinado e guardamos junto ao seu cadastro.
+    </div>
   </section>
 
   <p class="rodape">Totali Soluções Contábeis · seus dados são usados apenas para a contabilidade da sua empresa.</p>
@@ -641,6 +648,7 @@ async function enviar(){
     $("#form").classList.add("oculto");
     $("#passos").classList.add("oculto");
     $("#protocolo").textContent = protocolo;
+    $("#lembreteCompromisso").classList.toggle("oculto", escolha.acesso !== "envio");
     $("#telaFim").classList.remove("oculto");
     window.scrollTo({top:0, behavior:"smooth"});
   }catch(e){
