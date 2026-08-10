@@ -56,20 +56,35 @@ service cloud.firestore {
         allow update, delete: if ehAdmin();
       }
 
-      // O termo de compromisso em PDF, guardado em base64. Uma vez gravado,
-      // não pode ser alterado nem apagado — é um documento com valor probatório.
+      // O termo de compromisso em PDF, guardado em base64. Uma vez gravado, o
+      // conteúdo é imutável — é um documento com valor probatório. O admin pode
+      // apagar, mas só ao excluir a empresa inteira; nunca alterar o texto.
       match /termo/{arquivo} {
         allow create: if request.auth != null
                       && request.resource.data.base64 is string;
         allow read:   if ehEquipe();
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if ehAdmin();
       }
     }
 
-    // Quem pode entrar no painel. Criado e removido pelo console.
+    // Quem pode entrar no painel. Um admin gerencia isso pelo próprio painel.
     match /usuarios/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
+
+      // Cada pessoa lê o próprio cadastro (é o que o painel checa no login);
+      // o admin lê todos, para montar a lista de acessos.
+      allow read: if request.auth != null && (request.auth.uid == uid || ehAdmin());
+
+      allow create: if ehAdmin()
+                    && request.resource.data.papel in ['admin', 'equipe']
+                    && request.resource.data.nome is string
+                    && request.resource.data.email is string;
+
+      allow update: if ehAdmin()
+                    && request.resource.data.papel in ['admin', 'equipe'];
+
+      // Ninguém remove o próprio acesso: evita o projeto ficar sem administrador.
+      allow delete: if ehAdmin() && request.auth.uid != uid;
     }
 
     match /{document=**} {

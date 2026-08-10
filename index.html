@@ -141,6 +141,11 @@ button{font:inherit;cursor:pointer;border-radius:10px}
 /* ---------------- avisos ---------------- */
 .aviso{border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:16px;border:1.5px solid}
 .info{background:#eef4fd;border-color:#cbdcf5;color:#16406e}
+ol.compromisso{margin:10px 0 12px;padding-left:22px}
+ol.compromisso li{margin-bottom:4px}
+.b-baixar{display:block;width:100%;margin-top:12px;padding:13px 16px;border:1.5px solid var(--navy);
+  background:#fff;color:var(--navy);font-weight:700;font-size:14.5px;border-radius:10px}
+.b-baixar:hover{background:var(--navy);color:#fff}
 .erro{background:#fdecea;border-color:#f3c3bf;color:var(--erro)}
 .oculto{display:none!important}
 
@@ -254,9 +259,15 @@ button{font:inherit;cursor:pointer;border-radius:10px}
         <div id="areaCompromisso" class="oculto">
           <div class="aviso info">
             <strong>Combinado.</strong> Então você se compromete a enviar à Totali, <strong>todo mês</strong>,
-            o relatório de vendas de cada maquineta que marcou acima.<br><br>
-            Sem esses relatórios não conseguimos lançar suas vendas nem as taxas, e o fechamento do mês fica parado.
-            Se em algum momento ficar difícil, é só avisar que a gente troca para o acesso direto.
+            pelo Confi, de cada maquineta marcada acima:
+            <ol class="compromisso">
+              <li><strong>Relatório de vendas;</strong></li>
+              <li><strong>Relatório de recebimentos;</strong></li>
+              <li><strong>Relatório de antecipações.</strong></li>
+            </ol>
+            Os relatórios são sempre do <strong>mês anterior</strong>. Sem eles não conseguimos lançar suas
+            vendas nem as taxas, e o fechamento do mês fica parado. Se em algum momento ficar difícil, é só
+            avisar que a gente troca para o acesso direto.
           </div>
         </div>
 
@@ -288,9 +299,14 @@ button{font:inherit;cursor:pointer;border-radius:10px}
 
     <div id="lembreteCompromisso" class="aviso info oculto" style="text-align:left;margin:24px 0 0">
       <strong>Lembrete do seu compromisso.</strong> Como você optou por enviar os documentos,
-      todo mês precisamos receber pelo Confi, de cada maquineta: <strong>relatório de vendas</strong>,
-      <strong>relatório de recebimentos</strong> e <strong>relatório de antecipações</strong>.
-      Geramos um termo com esse combinado e guardamos junto ao seu cadastro.
+      todo mês precisamos receber pelo Confi, de cada maquineta, os relatórios do <strong>mês anterior</strong>:
+      <ol class="compromisso">
+        <li><strong>Relatório de vendas;</strong></li>
+        <li><strong>Relatório de recebimentos;</strong></li>
+        <li><strong>Relatório de antecipações.</strong></li>
+      </ol>
+      Geramos um termo com esse combinado. Guarde uma cópia:
+      <button type="button" class="b-baixar" id="btnBaixarTermo">Baixar meu termo de compromisso (PDF)</button>
     </div>
   </section>
 
@@ -686,9 +702,14 @@ async function enviar(){
         });
       }
     } else {
-      baixarJSON(dados, protocolo + ".json");
-      if(pdf) pdf.save(nomeDoTermo(dados.empresa, agora));
+      baixarJSON(dados, protocolo + ".json");   // o PDF fica no botão da tela final
     }
+    // O cliente leva a própria cópia do termo.
+    if(pdf){
+      const nome = nomeDoTermo(dados.empresa, agora);
+      $("#btnBaixarTermo").onclick = () => pdf.save(nome);
+    }
+
     localStorage.removeItem(CHAVE);
     $("#form").classList.add("oculto");
     $("#passos").classList.add("oculto");
