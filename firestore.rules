@@ -36,7 +36,9 @@ service cloud.firestore {
                     && request.resource.data.empresa.nome.size() > 2
                     && request.resource.data.empresa.cnpj is string
                     && request.resource.data.keys().hasAll(
-                         ['protocolo','status','empresa','bancos','maquinetas','formaDocumentos']);
+                         ['protocolo','status','empresa','bancos','maquinetas','formaDocumentos'])
+                    && (request.resource.data.termo == null
+                        || request.resource.data.termo.nome is string);
 
       allow read: if ehEquipe();
 
@@ -52,6 +54,15 @@ service cloud.firestore {
         allow create: if request.auth != null;
         allow read:   if ehAdmin();
         allow update, delete: if ehAdmin();
+      }
+
+      // O termo de compromisso em PDF, guardado em base64. Uma vez gravado,
+      // não pode ser alterado nem apagado — é um documento com valor probatório.
+      match /termo/{arquivo} {
+        allow create: if request.auth != null
+                      && request.resource.data.base64 is string;
+        allow read:   if ehEquipe();
+        allow update, delete: if false;
       }
     }
 

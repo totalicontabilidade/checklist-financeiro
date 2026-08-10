@@ -303,8 +303,6 @@ import { getAuth, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, addDoc, doc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref, uploadBytes }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { jsPDF } from "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm";
 import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
 
@@ -312,12 +310,11 @@ import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
 
 // Sem configuração o formulário roda em modo de teste: baixa um .json
 // e um PDF de exemplo, sem gravar nada na nuvem.
-let db = null, storage = null, auth = null;
+let db = null, auth = null;
 if (CONFIGURADO) {
   const app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-  storage = getStorage(app);
 }
 
 // Em ordem alfabética — é assim que aparece para o cliente.
@@ -648,10 +645,6 @@ async function enviar(){
     if(CONFIGURADO){
       await signInAnonymously(auth);   // identifica o envio sem pedir nada ao cliente
 
-      const caminhoTermo = pdf
-        ? `termos/${agora.getFullYear()}/${protocolo}.pdf`
-        : "";
-
       // O documento principal não guarda login nem senha: eles vão para a
       // subcoleção "acessos", que só a administração enxerga.
       const registro = {
@@ -668,10 +661,22 @@ async function enviar(){
         maquinetaOutra: dados.maquinaOutra,
         formaDocumentos: dados.formaDocumentos,
         observacoes: dados.observacoes,
-        termo: caminhoTermo ? { caminho: caminhoTermo, geradoEm: dados.enviadoEm } : null
+        // O arquivo em si fica na subcoleção "termo"; aqui vai só a ficha dele,
+        // para a listagem do painel continuar leve.
+        termo: pdf ? { nome: nomeDoTermo(dados.empresa, agora), geradoEm: dados.enviadoEm } : null
       };
 
       const ref_ = await addDoc(collection(db, "checklists"), registro);
+
+      // O PDF tem ~8 KB e o limite de um documento é 1 MB, então cabe no próprio
+      // Firestore — sem depender do Storage, que exigiria o plano Blaze.
+      if(pdf){
+        await setDoc(doc(db, "checklists", ref_.id, "termo", "arquivo"), {
+          nome: nomeDoTermo(dados.empresa, agora),
+          geradoEm: dados.enviadoEm,
+          base64: pdf.output("datauristring").split(",")[1]
+        });
+      }
 
       // Credenciais, uma por maquineta, só de quem optou por informar o acesso.
       const comAcesso = (dados.maquinas || []).filter(m => m.login || m.senha);
@@ -679,11 +684,6 @@ async function enviar(){
         await setDoc(doc(db, "checklists", ref_.id, "acessos", chaveSegura(m.maquina)), {
           maquineta: m.maquina, login: m.login, senha: m.senha
         });
-      }
-
-      if(pdf){
-        await uploadBytes(ref(storage, caminhoTermo), pdf.output("blob"),
-          { contentType: "application/pdf" });
       }
     } else {
       baixarJSON(dados, protocolo + ".json");

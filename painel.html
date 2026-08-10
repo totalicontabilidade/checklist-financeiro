@@ -177,8 +177,6 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
 import { getFirestore, collection, query, orderBy, onSnapshot, getDocs, getDoc,
          doc, updateDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref, getDownloadURL }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
 
 const $ = (s) => document.querySelector(s);
@@ -199,7 +197,6 @@ if(!CONFIGURADO){
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 let registros = [], atual = null, cancelar = null, ehAdmin = false;
 
@@ -375,7 +372,7 @@ async function abrir(id){
 
   $("#mTitulo").textContent = `${r.protocolo} — ${r.empresa?.nome || ""}`;
   $("#mCorpo").innerHTML = html;
-  $("#btnTermo").classList.toggle("oculto", !r.termo?.caminho);
+  $("#btnTermo").classList.toggle("oculto", !r.termo);
   $("#modal").showModal();
 
   const alvo = $("#acessos");
@@ -399,12 +396,28 @@ async function abrir(id){
 $("#btnFechar").addEventListener("click", () => $("#modal").close());
 
 $("#btnTermo").addEventListener("click", async () => {
-  if(!atual?.termo?.caminho) return;
+  if(!atual?.termo) return;
+  const btn = $("#btnTermo");
+  btn.disabled = true; btn.textContent = "Preparando...";
   try{
-    const url = await getDownloadURL(ref(storage, atual.termo.caminho));
-    window.open(url, "_blank", "noopener");
+    const d = await getDoc(doc(db, "checklists", atual.id, "termo", "arquivo"));
+    if(!d.exists()) throw new Error("o termo não foi encontrado");
+
+    // O PDF vem em base64 dentro do documento; remontamos o arquivo aqui.
+    const bin = atob(d.data().base64);
+    const bytes = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+    const url = URL.createObjectURL(new Blob([bytes], { type:"application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = d.data().nome || (atual.protocolo + ".pdf");
+    a.click();
+    URL.revokeObjectURL(url);
   }catch(err){
     alerta("Não consegui abrir o termo: " + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = "Baixar termo (PDF)";
   }
 });
 

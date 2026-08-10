@@ -1,20 +1,21 @@
-// Credenciais do projeto Firebase.
+// Credenciais do projeto Firebase — Checklist Financeiro (Totali).
 //
-// Onde achar: console.firebase.google.com > Configurações do projeto (engrenagem)
-// > Seus apps > Web > "Configuração do SDK" > Config. Copie o objeto e cole aqui.
+// Estas chaves são PÚBLICAS por natureza: ficam visíveis no código da página
+// em qualquer site que use Firebase. Quem protege os dados são as regras do
+// Firestore e do Storage, não elas.
 //
-// Estas chaves são PÚBLICAS por natureza — ficam visíveis no código da página.
-// Quem protege os dados são as regras do Firestore e do Storage, não elas.
+// Onde conferir: console.firebase.google.com > Configurações do projeto >
+// Seus apps > Web > Configuração do SDK.
 
 export const firebaseConfig = {
-  apiKey: "COLE_AQUI",
-  authDomain: "SEU-PROJETO.firebaseapp.com",
-  projectId: "SEU-PROJETO",
-  storageBucket: "SEU-PROJETO.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000000000"
+  apiKey: "AIzaSyABlCpIYgZ7lx3Hv2OflZyqP8Ng5Cs5NyA",
+  authDomain: "checklist-financeiro-82cc7.firebaseapp.com",
+  projectId: "checklist-financeiro-82cc7",
+  storageBucket: "checklist-financeiro-82cc7.firebasestorage.app",
+  messagingSenderId: "982040754792",
+  appId: "1:982040754792:web:ffbac10ab20ee3acc0d9dd"
 };
 
-// Enquanto não estiver preenchido, o formulário roda em modo de teste:
-// baixa o .json e o PDF no aparelho, sem gravar nada na nuvem.
+// Continua servindo de trava: se um dia a configuração for esvaziada,
+// o formulário volta ao modo de teste em vez de falhar silenciosamente.
 export const CONFIGURADO = firebaseConfig.apiKey !== "COLE_AQUI";
