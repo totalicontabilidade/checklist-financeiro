@@ -220,8 +220,20 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
           </select>
         </div>
       </div>
-      <button type="submit" class="b" id="btnCriarEmpresa">Cadastrar e gerar link</button>
+      <button type="submit" class="b" id="btnCriarEmpresa">Cadastrar e gerar mensagem</button>
     </form>
+
+    <div id="areaMensagem" class="oculto" style="margin-top:22px">
+      <h4>Mensagem pronta para enviar</h4>
+      <p style="color:var(--muted);font-size:13.5px;margin:0 0 10px">
+        Já está copiada — é só colar no WhatsApp. Pode editar aqui antes de copiar de novo.
+      </p>
+      <textarea id="mensagem" rows="11" style="font-size:14px"></textarea>
+      <div style="display:flex;gap:9px;margin-top:10px">
+        <button type="button" class="b" id="btnCopiarMensagem">Copiar mensagem</button>
+        <button type="button" class="b2" id="btnCopiarSoLink">Copiar só o link</button>
+      </div>
+    </div>
 
     <h4>Empresas cadastradas</h4>
     <div id="listaEmpresas">carregando...</div>
@@ -595,6 +607,38 @@ function cnpjValido(valor){
 const linkDaEmpresa = (id) =>
   location.origin + location.pathname.replace(/painel\.html$/, "") + "?e=" + id;
 
+/* ------------------------------------------------------------------
+   Texto que vai para o cliente. Para mudar a redação, edite só aqui —
+   {EMPRESA} e {LINK} são trocados pelos dados na hora de gerar.
+   O * do WhatsApp deixa o trecho em negrito; o _ deixa em itálico.
+   ------------------------------------------------------------------ */
+const MODELO_MENSAGEM =
+`Olá! 👋
+
+Para facilitar o cadastro e a organização das informações da *{EMPRESA}*, pedimos que você preencha o Checklist Financeiro no link abaixo.
+
+São duas perguntas rápidas: *quais bancos* a empresa utiliza e *quais maquininhas de cartão*. Leva cerca de 2 minutos e pode ser preenchido pelo celular.
+
+Essas informações são importantes para que possamos realizar corretamente a conferência e o acompanhamento dos dados para contabilização da empresa.
+
+🔗 {LINK}
+
+_Totali Soluções Contábeis_`;
+
+const mensagemDaEmpresa = (nome, id) =>
+  MODELO_MENSAGEM.replace("{EMPRESA}", nome).replace("{LINK}", linkDaEmpresa(id));
+
+async function copiar(texto, botao, rotulo){
+  try{
+    await navigator.clipboard.writeText(texto);
+    const antes = botao.textContent;
+    botao.textContent = "Copiado!";
+    setTimeout(() => { botao.textContent = rotulo || antes; }, 1800);
+  }catch(e){
+    avisoEmpresas("O navegador bloqueou a cópia. Selecione o texto e copie com Ctrl+C.", "erro");
+  }
+}
+
 function avisoEmpresas(msg, tipo){
   const a = $("#avisoEmpresas");
   a.className = "aviso " + tipo;
@@ -625,15 +669,19 @@ async function listarEmpresas(){
         </div>
         <div class="linkbox">
           <input type="text" readonly value="${esc(linkDaEmpresa(d.id))}">
-          <button type="button" class="b2" data-copiar="${d.id}">Copiar</button>
+          <button type="button" class="b" data-msg="${d.id}" data-nome="${esc(e.nome)}">Mensagem</button>
+          <button type="button" class="b2" data-copiar="${d.id}">Link</button>
         </div>
       </div>`;
     }).join("");
 
-    $$("[data-copiar]").forEach(b => b.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(linkDaEmpresa(b.dataset.copiar));
-      b.textContent = "Copiado!";
-      setTimeout(() => { b.textContent = "Copiar"; }, 1800);
+    $$("[data-copiar]").forEach(b => b.addEventListener("click",
+      () => copiar(linkDaEmpresa(b.dataset.copiar), b, "Link")));
+
+    $$("[data-msg]").forEach(b => b.addEventListener("click", () => {
+      const texto = mensagemDaEmpresa(b.dataset.nome, b.dataset.msg);
+      mostrarMensagem(texto, b.dataset.msg);
+      copiar(texto, b, "Mensagem");
     }));
 
     $$("[data-apagar-emp]").forEach(b => b.addEventListener("click", () => apagarEmpresa(b.dataset.apagarEmp)));
@@ -674,8 +722,10 @@ $("#formEmpresa").addEventListener("submit", async (e) => {
       criadoEm: serverTimestamp()
     });
 
-    await navigator.clipboard.writeText(linkDaEmpresa(ref_.id)).catch(() => {});
-    avisoEmpresas("Empresa cadastrada. O link já está copiado — é só colar no WhatsApp.", "ok");
+    const texto = mensagemDaEmpresa($("#empNome").value.trim(), ref_.id);
+    mostrarMensagem(texto, ref_.id);
+    await navigator.clipboard.writeText(texto).catch(() => {});
+    avisoEmpresas("Empresa cadastrada. A mensagem já está copiada — é só colar no WhatsApp.", "ok");
     $("#formEmpresa").reset();
     listarEmpresas();
   }catch(err){
@@ -685,8 +735,26 @@ $("#formEmpresa").addEventListener("submit", async (e) => {
   }
 });
 
+let idDaMensagem = null;
+
+function mostrarMensagem(texto, id){
+  idDaMensagem = id;
+  $("#mensagem").value = texto;
+  $("#areaMensagem").classList.remove("oculto");
+  $("#areaMensagem").scrollIntoView({ behavior:"smooth", block:"nearest" });
+}
+
+// Copia o que está no campo, e não o modelo: assim vale a edição feita na hora.
+$("#btnCopiarMensagem").addEventListener("click", (e) =>
+  copiar($("#mensagem").value, e.target, "Copiar mensagem"));
+
+$("#btnCopiarSoLink").addEventListener("click", (e) => {
+  if(idDaMensagem) copiar(linkDaEmpresa(idDaMensagem), e.target, "Copiar só o link");
+});
+
 $("#btnEmpresas").addEventListener("click", () => {
   $("#avisoEmpresas").classList.add("oculto");
+  $("#areaMensagem").classList.add("oculto");
   $("#listaEmpresas").innerHTML = "carregando...";
   $("#modalEmpresas").showModal();
   listarEmpresas();
