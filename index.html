@@ -179,6 +179,16 @@ ol.compromisso li{margin-bottom:4px}
     <p class="sub" style="margin:0">Carregando o checklist da sua empresa...</p>
   </section>
 
+  <!-- O link já foi usado: um checklist por empresa. -->
+  <section class="cartao oculto" id="telaJaRespondido" style="padding:30px 20px">
+    <h2>Este checklist já foi preenchido</h2>
+    <p class="sub" id="quandoRespondeu">As respostas desta empresa já estão com a Totali.</p>
+    <div class="aviso info" style="margin-bottom:0">
+      Cada link vale por um envio. Se você precisa <strong>corrigir ou complementar</strong> alguma
+      informação, fale com a Totali — geramos um link novo para você.
+    </div>
+  </section>
+
   <!-- Link inválido, sem link, ou empresa já removida. -->
   <section class="cartao oculto" id="telaSemLink" style="padding:30px 20px">
     <h2>Link inválido</h2>
@@ -409,11 +419,11 @@ function sincronizar(nome, alvo, area, molde){
 const MOLDE_MAQUINA = `
   <div class="dupla">
     <div>
-      <label class="rot">Login / usuário <span class="opc">(opcional)</span></label>
+      <label class="rot">Login / usuário</label>
       <input data-c="login" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="E-mail ou CNPJ de acesso">
     </div>
     <div>
-      <label class="rot">Senha <span class="opc">(opcional)</span></label>
+      <label class="rot">Senha</label>
       <div class="senha">
         <input type="password" data-c="senha" autocomplete="new-password" spellcheck="false" placeholder="••••••••">
         <button type="button" class="ver">Mostrar</button>
@@ -507,6 +517,26 @@ function validarPasso(){
       if(!escolha.acesso){
         alerta("Escolha como vamos receber o relatório de vendas todo mês: você informa o acesso ou envia os documentos.");
         return false;
+      }
+      if(escolha.acesso === "dados"){
+        let primeiro = null;
+        const faltando = [];
+        $$("#detalhesMaquinas .detalhe").forEach(el => {
+          ["login","senha"].forEach(campo => {
+            const c = el.querySelector(`[data-c="${campo}"]`);
+            if(!c.value.trim()){
+              c.classList.add("ruim");
+              if(!primeiro) primeiro = c;
+              if(!faltando.includes(el.dataset.valor)) faltando.push(el.dataset.valor);
+            }
+          });
+        });
+        if(primeiro){
+          alerta("Falta o login e a senha de: <b>" + faltando.join(", ") + "</b>.<br>"
+            + "Se preferir não informar o acesso, escolha <b>Eu mesmo envio</b> acima.");
+          primeiro.focus();
+          return false;
+        }
       }
     }
   }
@@ -863,6 +893,19 @@ function semLink(){
   $("#telaSemLink").classList.remove("oculto");
 }
 
+/** Cada link vale por um envio. Aqui o cliente já respondeu. */
+function jaRespondido(quando){
+  $("#telaCarregando").classList.add("oculto");
+  if(quando){
+    const d = new Date(quando);
+    if(!isNaN(d)) $("#quandoRespondeu").textContent =
+      "As respostas desta empresa chegaram à Totali em "
+      + d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric",
+                                    hour:"2-digit", minute:"2-digit" }) + ".";
+  }
+  $("#telaJaRespondido").classList.remove("oculto");
+}
+
 function abrirFormulario(){
   $("#telaCarregando").classList.add("oculto");
   $("#passos").classList.remove("oculto");
@@ -896,6 +939,13 @@ async function iniciar(){
     const d = await getDoc(doc(db, "empresas", empresaId));
     if(!d.exists()) return semLink();
     empresa = d.data();
+
+    if(empresa.status === "respondido"){
+      // O rascunho não serve mais e só atrapalharia num link novo.
+      try{ localStorage.removeItem(chaveRascunho()); }catch(e){}
+      return jaRespondido(empresa.respondidoEm);
+    }
+
     abrirFormulario();
   }catch(e){
     console.error(e);

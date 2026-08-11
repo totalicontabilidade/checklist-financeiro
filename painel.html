@@ -157,7 +157,7 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
         <table>
           <thead>
             <tr>
-              <th>Protocolo</th><th>Empresa</th><th>CNPJ</th>
+              <th>Protocolo</th><th>Empresa</th><th>CNPJ</th><th>Regime</th>
               <th>Bancos</th><th>Maquinetas</th><th>Relatórios</th>
               <th>Recebido</th><th>Status</th>
             </tr>
@@ -411,7 +411,7 @@ function render(){
   $("#contagem").textContent = `${lista.length} de ${registros.length} checklist(s)`;
 
   if(!lista.length){
-    $("#corpo").innerHTML = `<tr><td colspan="8" class="vazio">Nenhum checklist encontrado.</td></tr>`;
+    $("#corpo").innerHTML = `<tr><td colspan="9" class="vazio">Nenhum checklist encontrado.</td></tr>`;
     return;
   }
 
@@ -420,6 +420,7 @@ function render(){
       <td style="font-family:Consolas,monospace">${esc(r.protocolo)}</td>
       <td><strong>${esc(r.empresa?.nome)}</strong></td>
       <td>${esc(r.empresa?.cnpj)}</td>
+      <td>${esc(r.empresa?.regime)}</td>
       <td>${r.temBanco === false ? "—" : (r.bancos?.length || 0)}</td>
       <td>${r.temMaquineta === false ? "—" : (r.maquinetas?.length || 0)}</td>
       <td>${tagForma(r.formaDocumentos)}</td>
@@ -447,7 +448,9 @@ async function abrir(id){
 
   let html = `<h4>Empresa</h4>` + linhas([
     ["Razão social", esc(r.empresa?.nome)],
+    ["Nome fantasia", esc(r.empresa?.fantasia)],
     ["CNPJ", esc(r.empresa?.cnpj)],
+    ["Regime tributário", esc(r.empresa?.regime)],
     ["Protocolo", esc(r.protocolo)],
     ["Recebido em", dataBR(r)]
   ]);
@@ -805,13 +808,14 @@ $("#btnCsv").addEventListener("click", () => {
   const lista = filtrados();
   if(!lista.length) return;
 
-  const linhasCsv = [["Protocolo","Status","Recebido em","Empresa","CNPJ","Tem banco?","Bancos",
-    "Outros bancos","Usa maquineta?","Maquinetas","Outra maquineta","Relatórios","Observações"]];
+  const linhasCsv = [["Protocolo","Status","Recebido em","Empresa","Fantasia","CNPJ","Regime",
+    "Tem banco?","Bancos","Outros bancos","Usa maquineta?","Maquinetas","Outra maquineta",
+    "Relatórios","Observações"]];
 
   for(const r of lista){
     linhasCsv.push([
       r.protocolo, ROTULO[r.status] || "Novo", dataBR(r),
-      r.empresa?.nome, r.empresa?.cnpj,
+      r.empresa?.nome, r.empresa?.fantasia, r.empresa?.cnpj, r.empresa?.regime,
       r.temBanco ? "Sim" : "Não", (r.bancos || []).join(", "), r.bancoOutro,
       r.temMaquineta ? "Sim" : "Não", (r.maquinetas || []).join(", "), r.maquinetaOutra,
       r.formaDocumentos, r.observacoes

@@ -38,9 +38,11 @@ service cloud.firestore {
                     && request.resource.data.cnpj is string
                     && request.resource.data.status == 'aguardando';
 
-      // O cliente só marca que respondeu; o resto do cadastro é da equipe.
+      // O cliente só marca que respondeu, e só uma vez: se a empresa já está
+      // como 'respondido', nem a marcação passa de novo.
       allow update: if ehEquipe()
                     || (request.auth != null
+                        && resource.data.status == 'aguardando'
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['status','respondidoEm','checklistId'])
                         && request.resource.data.status == 'respondido');
@@ -61,7 +63,12 @@ service cloud.firestore {
                     && request.resource.data.keys().hasAll(
                          ['protocolo','status','empresa','bancos','maquinetas','formaDocumentos'])
                     && (request.resource.data.termo == null
-                        || request.resource.data.termo.nome is string);
+                        || request.resource.data.termo.nome is string)
+                    // Um checklist por empresa: se ela já respondeu, o envio é
+                    // recusado aqui, mesmo que alguém contorne a tela.
+                    && request.resource.data.empresaId is string
+                    && get(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId))
+                         .data.status == 'aguardando';
 
       allow read: if ehEquipe();
 
