@@ -25,6 +25,29 @@ service cloud.firestore {
              && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'admin';
     }
 
+    // Empresas cadastradas pela Totali. O ID do documento é o segredo do link
+    // que vai para o cliente — por isso a leitura de UM documento é liberada a
+    // quem está autenticado (o cliente entra de forma anônima), mas LISTAR a
+    // coleção continua restrito à equipe: ninguém varre a carteira de clientes.
+    match /empresas/{id} {
+      allow get:  if request.auth != null;
+      allow list: if ehEquipe();
+
+      allow create: if ehEquipe()
+                    && request.resource.data.nome is string
+                    && request.resource.data.cnpj is string
+                    && request.resource.data.status == 'aguardando';
+
+      // O cliente só marca que respondeu; o resto do cadastro é da equipe.
+      allow update: if ehEquipe()
+                    || (request.auth != null
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['status','respondidoEm','checklistId'])
+                        && request.resource.data.status == 'respondido');
+
+      allow delete: if ehAdmin();
+    }
+
     match /checklists/{id} {
 
       // Envio do formulário. Anônimo serve, mas tem de estar autenticado —
@@ -80,8 +103,12 @@ service cloud.firestore {
                     && request.resource.data.nome is string
                     && request.resource.data.email is string;
 
+      // O admin muda o nível de acesso dos outros. Mudar o PRÓPRIO papel é
+      // bloqueado: o último administrador poderia se rebaixar e travar todo mundo.
       allow update: if ehAdmin()
-                    && request.resource.data.papel in ['admin', 'equipe'];
+                    && request.resource.data.papel in ['admin', 'equipe']
+                    && (request.auth.uid != uid
+                        || request.resource.data.papel == resource.data.papel);
 
       // Ninguém remove o próprio acesso: evita o projeto ficar sem administrador.
       allow delete: if ehAdmin() && request.auth.uid != uid;

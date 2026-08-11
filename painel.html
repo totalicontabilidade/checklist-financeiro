@@ -43,8 +43,13 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 .b-perigo:hover{background:#fdecea}
 .pessoa{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
 .pessoa .cresce{flex:1}
+.pessoa select{width:auto;padding:7px 10px;font-size:13.5px}
 .pessoa .papel{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:99px;background:#e7effc;color:#16406e}
 .pessoa .papel.adm{background:#fdf1dc;color:var(--alerta)}
+.linkbox{display:flex;gap:8px;margin-top:8px}
+.linkbox input{font-family:Consolas,monospace;font-size:12.5px;background:#f7f9fc}
+.tag-aguardando{background:#fdf1dc;color:var(--alerta)}
+.tag-respondido{background:#e9f7f0;color:var(--ok)}
 .ok{background:#e9f7f0;border-color:#bde3d0;color:var(--ok)}
 
 .login{max-width:390px;margin:60px auto}
@@ -143,6 +148,7 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
         </select>
         <div class="espaco"></div>
         <span class="contagem" id="contagem"></span>
+        <button type="button" class="b" id="btnEmpresas">Empresas e links</button>
         <button type="button" class="b2 oculto" id="btnEquipe">Gerenciar acessos</button>
         <button type="button" class="b2" id="btnCsv">Exportar CSV</button>
       </div>
@@ -176,6 +182,49 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
     <button type="button" class="b2" data-status="novo">Marcar Novo</button>
     <button type="button" class="b2" data-status="analise">Em análise</button>
     <button type="button" class="b" data-status="concluido">Concluído</button>
+  </div>
+</dialog>
+
+<!-- ---------------- empresas e links ---------------- -->
+<dialog id="modalEmpresas">
+  <div class="m-topo">
+    <h3>Empresas e links do checklist</h3>
+    <button type="button" class="b2" id="btnFecharEmpresas">Fechar</button>
+  </div>
+  <div class="m-corpo">
+    <div id="avisoEmpresas" class="aviso oculto"></div>
+
+    <h4>Cadastrar empresa e gerar o link</h4>
+    <form id="formEmpresa">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label class="rot" for="empNome">Nome / fantasia</label>
+          <input type="text" id="empNome" required autocomplete="off">
+        </div>
+        <div>
+          <label class="rot" for="empCnpj">CNPJ</label>
+          <input type="text" id="empCnpj" required inputmode="numeric" placeholder="00.000.000/0000-00">
+        </div>
+        <div>
+          <label class="rot" for="empRazao">Razão social</label>
+          <input type="text" id="empRazao" required autocomplete="off">
+        </div>
+        <div>
+          <label class="rot" for="empRegime">Regime tributário</label>
+          <select id="empRegime">
+            <option>Simples Nacional</option>
+            <option>Lucro Presumido</option>
+            <option>Lucro Real</option>
+            <option>MEI</option>
+            <option>Imune / Isenta</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="b" id="btnCriarEmpresa">Cadastrar e gerar link</button>
+    </form>
+
+    <h4>Empresas cadastradas</h4>
+    <div id="listaEmpresas">carregando...</div>
   </div>
 </dialog>
 
@@ -228,7 +277,7 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
          signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, onSnapshot, getDocs, getDoc,
-         doc, setDoc, updateDoc, deleteDoc, serverTimestamp }
+         doc, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
 
@@ -516,6 +565,131 @@ $("#btnExcluir").addEventListener("click", async () => {
   }
 });
 
+/* ------------------------------------- empresas e links */
+
+const soDigitos = (v) => (v || "").replace(/\D/g, "");
+
+function mascaraCNPJ(v){
+  return soDigitos(v).slice(0,14)
+    .replace(/^(\d{2})(\d)/,"$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/,"$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/,".$1/$2")
+    .replace(/(\d{4})(\d)/,"$1-$2");
+}
+
+function cnpjValido(valor){
+  const c = soDigitos(valor);
+  if(c.length !== 14 || /^(\d)\1{13}$/.test(c)) return false;
+  const dv = (tam) => {
+    let soma = 0, peso = tam - 7;
+    for(let i=0;i<tam;i++){ soma += Number(c[i]) * peso--; if(peso < 2) peso = 9; }
+    const r = soma % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return dv(12) === Number(c[12]) && dv(13) === Number(c[13]);
+}
+
+const linkDaEmpresa = (id) =>
+  location.origin + location.pathname.replace(/painel\.html$/, "") + "?e=" + id;
+
+function avisoEmpresas(msg, tipo){
+  const a = $("#avisoEmpresas");
+  a.className = "aviso " + tipo;
+  a.textContent = msg;
+}
+
+$("#empCnpj").addEventListener("input", e => { e.target.value = mascaraCNPJ(e.target.value); });
+
+async function listarEmpresas(){
+  const alvo = $("#listaEmpresas");
+  try{
+    const snap = await getDocs(query(collection(db, "empresas"), orderBy("criadoEm", "desc")));
+    if(snap.empty){ alvo.innerHTML = `<p style="color:var(--muted)">Nenhuma empresa cadastrada ainda.</p>`; return; }
+
+    alvo.innerHTML = snap.docs.map(d => {
+      const e = d.data();
+      const respondido = e.status === "respondido";
+      return `<div class="pessoa" style="display:block">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="cresce">
+            <strong>${esc(e.nome)}</strong>
+            <span class="tag ${respondido ? "tag-respondido" : "tag-aguardando"}">
+              ${respondido ? "respondido" : "aguardando"}</span><br>
+            <span style="color:var(--muted);font-size:12.5px">
+              ${esc(e.cnpj)} · ${esc(e.regime)}</span>
+          </div>
+          ${ehAdmin ? `<button type="button" class="b-perigo" data-apagar-emp="${d.id}">Excluir</button>` : ""}
+        </div>
+        <div class="linkbox">
+          <input type="text" readonly value="${esc(linkDaEmpresa(d.id))}">
+          <button type="button" class="b2" data-copiar="${d.id}">Copiar</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    $$("[data-copiar]").forEach(b => b.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(linkDaEmpresa(b.dataset.copiar));
+      b.textContent = "Copiado!";
+      setTimeout(() => { b.textContent = "Copiar"; }, 1800);
+    }));
+
+    $$("[data-apagar-emp]").forEach(b => b.addEventListener("click", () => apagarEmpresa(b.dataset.apagarEmp)));
+  }catch(err){
+    alvo.innerHTML = `<p style="color:var(--erro)">Não consegui listar: ${esc(err.message)}</p>`;
+  }
+}
+
+async function apagarEmpresa(id){
+  if(!confirm("Excluir esta empresa do cadastro?\n\n"
+    + "O link dela para de funcionar. Os checklists que ela já respondeu continuam guardados.")) return;
+  try{
+    await deleteDoc(doc(db, "empresas", id));
+    avisoEmpresas("Empresa excluída.", "ok");
+    listarEmpresas();
+  }catch(err){
+    avisoEmpresas("Não consegui excluir: " + err.message, "erro");
+  }
+}
+
+$("#formEmpresa").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if(!cnpjValido($("#empCnpj").value)){
+    avisoEmpresas("Esse CNPJ não confere. Confira os números.", "erro");
+    $("#empCnpj").focus();
+    return;
+  }
+
+  const btn = $("#btnCriarEmpresa");
+  btn.disabled = true; btn.textContent = "Cadastrando...";
+  try{
+    const ref_ = await addDoc(collection(db, "empresas"), {
+      nome: $("#empNome").value.trim(),
+      razaoSocial: $("#empRazao").value.trim(),
+      cnpj: $("#empCnpj").value.trim(),
+      regime: $("#empRegime").value,
+      status: "aguardando",
+      criadoEm: serverTimestamp()
+    });
+
+    await navigator.clipboard.writeText(linkDaEmpresa(ref_.id)).catch(() => {});
+    avisoEmpresas("Empresa cadastrada. O link já está copiado — é só colar no WhatsApp.", "ok");
+    $("#formEmpresa").reset();
+    listarEmpresas();
+  }catch(err){
+    avisoEmpresas("Não consegui cadastrar: " + err.message, "erro");
+  }finally{
+    btn.disabled = false; btn.textContent = "Cadastrar e gerar link";
+  }
+});
+
+$("#btnEmpresas").addEventListener("click", () => {
+  $("#avisoEmpresas").classList.add("oculto");
+  $("#listaEmpresas").innerHTML = "carregando...";
+  $("#modalEmpresas").showModal();
+  listarEmpresas();
+});
+$("#btnFecharEmpresas").addEventListener("click", () => $("#modalEmpresas").close());
+
 /* ------------------------------------- acessos ao painel */
 
 function avisoEquipe(msg, tipo){
@@ -535,15 +709,34 @@ async function listarEquipe(){
       return `<div class="pessoa">
         <div class="cresce"><strong>${esc(u.nome)}</strong><br>
           <span style="color:var(--muted);font-size:12.5px">${esc(u.email)}</span></div>
-        <span class="papel ${adm ? "adm" : ""}">${adm ? "admin" : "equipe"}</span>
-        ${eu ? '<span style="color:var(--muted);font-size:12.5px">você</span>'
-             : `<button type="button" class="b-perigo" data-remover="${d.id}">Remover</button>`}
+        ${eu
+          ? `<span class="papel ${adm ? "adm" : ""}">${adm ? "admin" : "equipe"}</span>
+             <span style="color:var(--muted);font-size:12.5px">você</span>`
+          : `<select data-papel="${d.id}">
+               <option value="equipe" ${adm ? "" : "selected"}>Equipe</option>
+               <option value="admin"  ${adm ? "selected" : ""}>Administrador</option>
+             </select>
+             <button type="button" class="b-perigo" data-remover="${d.id}">Remover</button>`}
       </div>`;
     }).join("");
 
     $$("[data-remover]").forEach(b => b.addEventListener("click", () => removerAcesso(b.dataset.remover)));
+    $$("[data-papel]").forEach(s => s.addEventListener("change", () => mudarPapel(s.dataset.papel, s.value)));
   }catch(err){
     alvo.innerHTML = `<p style="color:var(--erro)">Não consegui listar: ${esc(err.message)}</p>`;
+  }
+}
+
+async function mudarPapel(uid, papel){
+  try{
+    await updateDoc(doc(db, "usuarios", uid), { papel, atualizadoEm: serverTimestamp() });
+    avisoEquipe(papel === "admin"
+      ? "Agora essa pessoa é administradora e vê as senhas das maquinetas."
+      : "Acesso reduzido para equipe: deixa de ver as senhas das maquinetas.", "ok");
+    listarEquipe();
+  }catch(err){
+    avisoEquipe("Não consegui alterar: " + err.message, "erro");
+    listarEquipe();   // devolve o seletor ao valor real
   }
 }
 
