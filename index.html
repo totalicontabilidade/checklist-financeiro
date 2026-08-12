@@ -144,6 +144,16 @@ button{font:inherit;cursor:pointer;border-radius:10px}
 /* ---------------- avisos ---------------- */
 .aviso{border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:16px;border:1.5px solid}
 .info{background:#eef4fd;border-color:#cbdcf5;color:#16406e}
+/* Aviso de maior peso: o cliente precisa ler antes de entregar um acesso. */
+.aviso.destaque{background:#fdf4f4;border-color:#c9a0a0;border-left-width:5px;
+  border-left-color:#8b1a1a;color:#7a1a1a;padding:15px 17px}
+.aviso.destaque p{margin:0 0 10px}
+.aviso.destaque p:last-child{margin-bottom:0}
+.destaque-titulo{font-weight:800;font-size:15px;color:#8b1a1a;margin-bottom:9px;
+  display:flex;align-items:center;gap:8px}
+.destaque-titulo::before{content:"!";flex:none;width:21px;height:21px;border-radius:50%;
+  background:#8b1a1a;color:#fff;font-size:14px;line-height:21px;text-align:center}
+.destaque-rodape{padding-top:9px;border-top:1px solid #e3c4c4;font-weight:700;font-size:13.5px}
 ol.compromisso{margin:10px 0 12px;padding-left:22px}
 ol.compromisso li{margin-bottom:4px}
 .b-baixar{display:block;width:100%;margin-top:12px;padding:13px 16px;border:1.5px solid var(--navy);
@@ -258,13 +268,15 @@ ol.compromisso li{margin-bottom:4px}
         </div>
 
         <div id="areaAcessos" class="oculto">
-          <div class="aviso info">
-            <strong>Para que serve o acesso?</strong> Só para baixar o relatório de vendas de cada maquineta
-            todo mês, sem precisar ficar cobrando você. Não movimentamos nada e não fazemos transferências.<br><br>
-            <strong>Dica de segurança:</strong> se a sua maquineta permite criar um <strong>usuário extra só para
-            consulta</strong> (Stone e Cielo permitem), prefira criar um e nos passar esse — assim sua senha
-            principal continua só com você.<br><br>
-            A Totali <strong>nunca</strong> pede senha do seu banco.
+          <div class="aviso destaque">
+            <div class="destaque-titulo">Crie um usuário exclusivamente para consulta</div>
+            <p>Caso opte por nos conceder acesso, é necessário criar um usuário com permissão
+            <strong>exclusivamente para consulta</strong>. Esse acesso permitirá que possamos consultar as
+            informações dos cartões e das maquinetas, <strong>sem possibilidade de realizar alterações,
+            movimentações, transferências ou qualquer outra operação</strong>.</p>
+            <p>Se você ainda não tem um usuário desse tipo, crie um no portal da maquineta e informe os
+            dados abaixo. Assim a sua senha principal continua somente com você.</p>
+            <p class="destaque-rodape">A Totali nunca solicita a senha do seu banco.</p>
           </div>
           <div id="detalhesMaquinas"></div>
         </div>
