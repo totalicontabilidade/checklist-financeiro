@@ -54,6 +54,8 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 .item .semtexto{color:var(--muted);font-size:12.5px}
 .item .comtexto{color:var(--ok);font-size:12.5px;font-weight:650}
 .dica{font-size:13px;color:var(--muted);margin:6px 0 0}
+.check{display:flex;align-items:flex-start;gap:9px;font-size:14px;line-height:1.5}
+.check input{margin-top:3px;width:17px;height:17px;accent-color:var(--navy-600);flex:none}
 .linha{margin-bottom:15px}
 .linkbox{display:flex;gap:8px;margin-top:8px}
 .linkbox input{font-family:Consolas,monospace;font-size:12.5px;background:#f7f9fc}
@@ -66,6 +68,11 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 .login p.sub{margin:0 0 20px;color:var(--muted);font-size:14px}
 .login .linha{margin-bottom:14px}
 
+/* Ações do painel: sempre à esquerda, todas com o mesmo peso visual. */
+.acoes{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;
+  padding-bottom:14px;border-bottom:1px solid var(--line)}
+.acoes .b{padding:11px 18px}
+@media(max-width:600px){ .acoes .b{flex:1 1 46%;text-align:center} }
 .barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .barra input,.barra select{width:auto;min-width:210px}
 .barra .espaco{flex:1}
@@ -142,6 +149,13 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
   <!-- ---------------- painel ---------------- -->
   <section id="telaPainel" class="oculto">
     <div class="cartao">
+      <div class="acoes">
+        <button type="button" class="b" id="btnEmpresas">Empresas e links</button>
+        <button type="button" class="b" id="btnCatalogo">Bancos e maquinetas</button>
+        <button type="button" class="b oculto" id="btnEquipe">Gerenciar acessos</button>
+        <button type="button" class="b" id="btnCsv">Exportar CSV</button>
+      </div>
+
       <div class="barra">
         <input type="text" id="busca" placeholder="Buscar por empresa, CNPJ ou protocolo...">
         <select id="filtroStatus">
@@ -157,10 +171,6 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
         </select>
         <div class="espaco"></div>
         <span class="contagem" id="contagem"></span>
-        <button type="button" class="b" id="btnEmpresas">Empresas e links</button>
-        <button type="button" class="b2" id="btnCatalogo">Bancos e maquinetas</button>
-        <button type="button" class="b2 oculto" id="btnEquipe">Gerenciar acessos</button>
-        <button type="button" class="b2" id="btnCsv">Exportar CSV</button>
       </div>
 
       <div class="rolagem">
@@ -216,6 +226,15 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
         <label class="rot" for="itemNome">Nome <span style="font-weight:400;color:var(--muted)">(como o cliente vê)</span></label>
         <input type="text" id="itemNome" autocomplete="off">
       </div>
+      <div class="linha oculto" id="linhaSemCredencial">
+        <label class="check">
+          <input type="checkbox" id="itemSemCredencial">
+          <span><strong>Não pede login e senha.</strong> A maquineta tem um modo próprio de liberar o
+          contador (como o <em>Modo Contador</em> da InfinitePay). Em vez dos campos, o cliente vê uma
+          confirmação de que já fez o cadastro.</span>
+        </label>
+      </div>
+
       <div class="linha">
         <label class="rot" for="itemOrientacao">Orientação para o cliente <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
         <textarea id="itemOrientacao" rows="8"
@@ -345,7 +364,7 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
 <script type="module">
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         signOut, onAuthStateChanged }
+         signOut, onAuthStateChanged, setPersistence, browserLocalPersistence }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, onSnapshot, getDocs, getDoc,
          doc, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp }
@@ -369,6 +388,11 @@ if(!CONFIGURADO){
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+
+// A sessão sobrevive a fechar o navegador e desligar o computador: o Firebase
+// renova o token sozinho. Só sai quem clicar em Sair.
+setPersistence(auth, browserLocalPersistence)
+  .catch(e => console.error("não consegui manter a sessão:", e));
 const db = getFirestore(app);
 
 let registros = [], atual = null, cancelar = null, ehAdmin = false, euSou = null;
@@ -563,9 +587,11 @@ async function abrir(id){
     const snap = await getDocs(collection(db, "checklists", r.id, "acessos"));
     alvo.innerHTML = snap.empty
       ? `<p style="color:var(--muted)">Nenhuma credencial informada — o cliente optou por enviar os documentos.</p>`
-      : linhas(snap.docs.flatMap(d => {
+      : linhas(snap.docs.map(d => {
           const a = d.data();
-          return [[esc(a.maquineta), `login <b>${esc(a.login)}</b> · senha <b>${esc(a.senha)}</b>`]];
+          return [esc(a.maquineta), a.modoProprio
+            ? "cliente confirmou o cadastro no modo contador — sem login e senha"
+            : `login <b>${esc(a.login)}</b> · senha <b>${esc(a.senha)}</b>`];
         }));
   }catch(err){
     alvo.innerHTML = `<p style="color:var(--erro)">Sem permissão para ver as credenciais.</p>`;
@@ -664,13 +690,17 @@ function fecharEditor(){
   $("#editorItem").classList.add("oculto");
   $("#itemNome").value = "";
   $("#itemOrientacao").value = "";
+  $("#itemSemCredencial").checked = false;
   $("#btnExcluirItem").classList.add("oculto");
 }
 
-function abrirEditor(id, nome, orientacao){
+function abrirEditor(id, nome, orientacao, semCredencial){
   editandoId = id;
   $("#itemNome").value = nome || "";
   $("#itemOrientacao").value = orientacao || "";
+  $("#itemSemCredencial").checked = !!semCredencial;
+  // Bancos não pedem credencial no formulário, então a opção não faz sentido lá.
+  $("#linhaSemCredencial").classList.toggle("oculto", abaAtual !== "maquinetas");
   $("#btnExcluirItem").classList.toggle("oculto", !id);
   $("#editorItem").classList.remove("oculto");
   $("#itemNome").focus();
@@ -692,14 +722,15 @@ async function listarCatalogo(){
       ? itens.map(i => `<div class="item">
           <div class="cresce"><strong>${esc(i.nome)}</strong><br>
             <span class="${i.orientacao ? "comtexto" : "semtexto"}">
-              ${i.orientacao ? "com orientação" : "sem orientação"}</span></div>
+              ${i.orientacao ? "com orientação" : "sem orientação"}</span>
+            ${i.semCredencial ? '<span class="semtexto"> · sem login e senha</span>' : ""}</div>
           <button type="button" class="b2" data-editar="${i.id}">Editar</button>
         </div>`).join("")
       : `<p style="color:var(--muted)">Nenhum ${ROTULO_ABA[abaAtual]} cadastrado.</p>`;
 
     $$("[data-editar]").forEach(b => b.addEventListener("click", () => {
       const i = itens.find(x => x.id === b.dataset.editar);
-      abrirEditor(i.id, i.nome, i.orientacao);
+      abrirEditor(i.id, i.nome, i.orientacao, i.semCredencial);
     }));
   }catch(err){
     alvo.innerHTML = `<p style="color:var(--erro)">Não consegui listar: ${esc(err.message)}</p>`;
@@ -715,7 +746,7 @@ $$(".aba").forEach(b => b.addEventListener("click", () => {
   listarCatalogo();
 }));
 
-$("#btnNovoItem").addEventListener("click", () => abrirEditor(null, "", ""));
+$("#btnNovoItem").addEventListener("click", () => abrirEditor(null, "", "", false));
 $("#btnCancelarItem").addEventListener("click", fecharEditor);
 
 $("#btnSalvarItem").addEventListener("click", async () => {
@@ -724,7 +755,11 @@ $("#btnSalvarItem").addEventListener("click", async () => {
 
   const btn = $("#btnSalvarItem");
   btn.disabled = true; btn.textContent = "Salvando...";
-  const dados = { nome, orientacao: $("#itemOrientacao").value.trim() };
+  const dados = {
+    nome,
+    orientacao: $("#itemOrientacao").value.trim(),
+    semCredencial: abaAtual === "maquinetas" && $("#itemSemCredencial").checked
+  };
   try{
     if(editandoId) await updateDoc(doc(db, abaAtual, editandoId), dados);
     else await addDoc(collection(db, abaAtual), { ...dados, criadoEm: serverTimestamp() });
@@ -757,7 +792,13 @@ $("#btnImportar").addEventListener("click", async () => {
   btn.disabled = true; btn.textContent = "Importando...";
   try{
     for(const nome of PADRAO[abaAtual]){
-      await addDoc(collection(db, abaAtual), { nome, orientacao: "", criadoEm: serverTimestamp() });
+      await addDoc(collection(db, abaAtual), {
+        nome,
+        orientacao: "",
+        // A InfinitePay já entra marcada: o Modo Contador dispensa login e senha.
+        semCredencial: abaAtual === "maquinetas" && nome === "InfinitePay",
+        criadoEm: serverTimestamp()
+      });
     }
     avisoCatalogo(`${PADRAO[abaAtual].length} ${ROTULO_ABA[abaAtual]}s importados. Agora é só editar as orientações.`, "ok");
     listarCatalogo();

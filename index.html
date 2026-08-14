@@ -93,6 +93,12 @@ textarea{min-height:86px;resize:vertical}
 }
 .senha button:hover{background:#e2e9f3}
 
+/* Confirmação para maquinetas com modo próprio, no lugar de login e senha. */
+.check.confirma{display:flex;align-items:flex-start;gap:10px;font-size:15px;font-weight:600;
+  color:var(--navy);background:#f2f7fd;border:1.5px solid #cbdcf5;border-radius:10px;
+  padding:13px 15px;cursor:pointer}
+.check.confirma input{margin-top:2px;width:19px;height:19px;accent-color:var(--navy-600);flex:none}
+
 /* ---------------- opção grande (sim/não) ---------------- */
 .opcoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
 .opcao{
@@ -362,7 +368,9 @@ import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
 // e um PDF de exemplo, sem gravar nada na nuvem.
 let db = null, auth = null;
 if (CONFIGURADO) {
-  const app = initializeApp(firebaseConfig);
+  // App com nome próprio: isola a sessão anônima do cliente da sessão do painel.
+  // Sem isso, abrir um link de cliente no mesmo navegador derrubaria o login da equipe.
+  const app = initializeApp(firebaseConfig, "cliente");
   auth = getAuth(app);
   db = getFirestore(app);
 }
@@ -381,8 +389,9 @@ const MAQUINAS_PADRAO = ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Co
 let BANCOS = BANCOS_PADRAO.map(nome => ({ nome, orientacao: "" }));
 let MAQUINAS = MAQUINAS_PADRAO.map(nome => ({ nome, orientacao: "" }));
 
-const orientacaoDe = (lista, nome) =>
-  (lista.find(i => i.nome === nome) || {}).orientacao || "";
+const itemDe = (lista, nome) => lista.find(i => i.nome === nome) || {};
+const orientacaoDe = (lista, nome) => itemDe(lista, nome).orientacao || "";
+const semCredencial = (nome) => !!itemDe(MAQUINAS, nome).semCredencial;
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -467,7 +476,13 @@ const MOLDE_MAQUINA = (maquineta) => {
          ${textoFormatado(passos)}
        </div>`
     : "")
-  + `<div class="dupla">
+  + (semCredencial(maquineta)
+    // Essa operadora libera o contador por dentro do app, então não há o que digitar.
+    ? `<label class="check confirma">
+         <input type="checkbox" data-c="confirmado">
+         <span>Já fiz o cadastro no Modo Contador da ${escapar(maquineta)}</span>
+       </label>`
+    : `<div class="dupla">
     <div>
       <label class="rot">Login / usuário</label>
       <input data-c="login" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="E-mail ou CNPJ de acesso">
@@ -479,7 +494,7 @@ const MOLDE_MAQUINA = (maquineta) => {
         <button type="button" class="ver">Mostrar</button>
       </div>
     </div>
-  </div>`;
+  </div>`);
 };
 
 function atualizarMaquinas(){
@@ -586,19 +601,32 @@ function validarPasso(){
       }
       if(escolha.acesso === "dados"){
         let primeiro = null;
-        const faltando = [];
+        const semLoginSenha = [], semConfirmar = [];
+
         $$("#detalhesMaquinas .detalhe").forEach(el => {
+          const confirma = el.querySelector('[data-c="confirmado"]');
+          if(confirma){
+            if(!confirma.checked){
+              semConfirmar.push(el.dataset.valor);
+              if(!primeiro) primeiro = confirma;
+            }
+            return;
+          }
           ["login","senha"].forEach(campo => {
             const c = el.querySelector(`[data-c="${campo}"]`);
             if(!c.value.trim()){
               c.classList.add("ruim");
               if(!primeiro) primeiro = c;
-              if(!faltando.includes(el.dataset.valor)) faltando.push(el.dataset.valor);
+              if(!semLoginSenha.includes(el.dataset.valor)) semLoginSenha.push(el.dataset.valor);
             }
           });
         });
+
         if(primeiro){
-          alerta("Falta o login e a senha de: <b>" + faltando.join(", ") + "</b>.<br>"
+          const partes = [];
+          if(semLoginSenha.length) partes.push("falta o login e a senha de <b>" + semLoginSenha.join(", ") + "</b>");
+          if(semConfirmar.length) partes.push("falta confirmar o cadastro no Modo Contador de <b>" + semConfirmar.join(", ") + "</b>");
+          alerta(partes.join("; ").replace(/^./, c => c.toUpperCase()) + ".<br>"
             + "Se preferir não informar o acesso, escolha <b>Eu mesmo envio</b> acima.");
           primeiro.focus();
           return false;
@@ -622,7 +650,9 @@ function lerDetalhes(alvo, chave){
   return [...$(alvo).children].map(el => {
     const o = {};
     o[chave] = el.dataset.valor;
-    el.querySelectorAll("[data-c]").forEach(c => { o[c.dataset.c] = c.value.trim(); });
+    el.querySelectorAll("[data-c]").forEach(c => {
+      o[c.dataset.c] = c.type === "checkbox" ? c.checked : c.value.trim();
+    });
     return o;
   });
 }
@@ -710,7 +740,11 @@ function marcarChips(nome, valores){
 function preencher(alvo, valor, dados){
   const el = $(alvo).querySelector(`[data-valor="${CSS.escape(valor)}"]`);
   if(!el) return;
-  el.querySelectorAll("[data-c]").forEach(c => { if(dados[c.dataset.c]) c.value = dados[c.dataset.c]; });
+  el.querySelectorAll("[data-c]").forEach(c => {
+    const v = dados[c.dataset.c];
+    if(c.type === "checkbox") c.checked = !!v;
+    else if(v) c.value = v;
+  });
 }
 
 /* ---------------------------------------------- envio */
@@ -773,10 +807,14 @@ async function enviar(){
       }
 
       // Credenciais, uma por maquineta, só de quem optou por informar o acesso.
-      const comAcesso = (dados.maquinas || []).filter(m => m.login || m.senha);
+      const comAcesso = (dados.maquinas || []).filter(m => m.login || m.senha || m.confirmado);
       for(const m of comAcesso){
         await setDoc(doc(db, "checklists", ref_.id, "acessos", chaveSegura(m.maquina)), {
-          maquineta: m.maquina, login: m.login, senha: m.senha
+          maquineta: m.maquina,
+          login: m.login || "",
+          senha: m.senha || "",
+          // Operadoras com modo próprio (ex.: Modo Contador) não têm credencial.
+          modoProprio: !!m.confirmado
         });
       }
 
