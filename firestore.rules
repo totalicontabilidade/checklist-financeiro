@@ -25,6 +25,23 @@ service cloud.firestore {
              && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'admin';
     }
 
+    // Catálogo de bancos e maquinetas, com a orientação de acesso de cada um.
+    // O cliente precisa ler para montar o formulário; quem edita é a equipe.
+    // Não há nada sensível aqui: são nomes de instituições e instruções públicas.
+    match /bancos/{id} {
+      allow read: if request.auth != null;
+      allow create, update: if ehEquipe() && request.resource.data.nome is string
+                            && request.resource.data.nome.size() > 0;
+      allow delete: if ehEquipe();
+    }
+
+    match /maquinetas/{id} {
+      allow read: if request.auth != null;
+      allow create, update: if ehEquipe() && request.resource.data.nome is string
+                            && request.resource.data.nome.size() > 0;
+      allow delete: if ehEquipe();
+    }
+
     // Empresas cadastradas pela Totali. O ID do documento é o segredo do link
     // que vai para o cliente — por isso a leitura de UM documento é liberada a
     // quem está autenticado (o cliente entra de forma anônima), mas LISTAR a

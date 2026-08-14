@@ -46,6 +46,15 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 .pessoa select{width:auto;padding:7px 10px;font-size:13.5px}
 .pessoa .papel{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:99px;background:#e7effc;color:#16406e}
 .pessoa .papel.adm{background:#fdf1dc;color:var(--alerta)}
+.abas{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.aba{background:#fff;border:1.5px solid var(--line);color:var(--muted);padding:9px 18px;font-weight:650}
+.aba.ativa{background:var(--navy);border-color:var(--navy);color:#fff}
+.item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.item .cresce{flex:1}
+.item .semtexto{color:var(--muted);font-size:12.5px}
+.item .comtexto{color:var(--ok);font-size:12.5px;font-weight:650}
+.dica{font-size:13px;color:var(--muted);margin:6px 0 0}
+.linha{margin-bottom:15px}
 .linkbox{display:flex;gap:8px;margin-top:8px}
 .linkbox input{font-family:Consolas,monospace;font-size:12.5px;background:#f7f9fc}
 .tag-aguardando{background:#fdf1dc;color:var(--alerta)}
@@ -149,6 +158,7 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
         <div class="espaco"></div>
         <span class="contagem" id="contagem"></span>
         <button type="button" class="b" id="btnEmpresas">Empresas e links</button>
+        <button type="button" class="b2" id="btnCatalogo">Bancos e maquinetas</button>
         <button type="button" class="b2 oculto" id="btnEquipe">Gerenciar acessos</button>
         <button type="button" class="b2" id="btnCsv">Exportar CSV</button>
       </div>
@@ -182,6 +192,55 @@ dialog::backdrop{background:rgba(11,31,58,.55)}
     <button type="button" class="b2" data-status="novo">Marcar Novo</button>
     <button type="button" class="b2" data-status="analise">Em análise</button>
     <button type="button" class="b" data-status="concluido">Concluído</button>
+  </div>
+</dialog>
+
+<!-- ---------------- catálogo: bancos e maquinetas ---------------- -->
+<dialog id="modalCatalogo">
+  <div class="m-topo">
+    <h3 id="tituloCatalogo">Bancos e maquinetas</h3>
+    <button type="button" class="b2" id="btnFecharCatalogo">Fechar</button>
+  </div>
+  <div class="m-corpo">
+    <div id="avisoCatalogo" class="aviso oculto"></div>
+
+    <div class="abas">
+      <button type="button" class="aba ativa" data-aba="bancos">Bancos</button>
+      <button type="button" class="aba" data-aba="maquinetas">Maquinetas</button>
+      <div style="flex:1"></div>
+      <button type="button" class="b" id="btnNovoItem">+ Adicionar</button>
+    </div>
+
+    <div id="editorItem" class="oculto">
+      <div class="linha">
+        <label class="rot" for="itemNome">Nome <span style="font-weight:400;color:var(--muted)">(como o cliente vê)</span></label>
+        <input type="text" id="itemNome" autocomplete="off">
+      </div>
+      <div class="linha">
+        <label class="rot" for="itemOrientacao">Orientação para o cliente <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+        <textarea id="itemOrientacao" rows="8"
+          placeholder="Explique o passo a passo para o cliente liberar o acesso à contabilidade.&#10;&#10;Ex.: 1. Abra o aplicativo da InfinitePay&#10;2. Toque em Perfil > Modo Contador&#10;3. Ative a chave e informe o e-mail contabil@totalicontabilidade.com.br"></textarea>
+        <p class="dica">Aparece para o cliente assim que ele marcar este item. Deixe em branco se não houver
+          nada a explicar. Pule uma linha para separar parágrafos.</p>
+      </div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button type="button" class="b" id="btnSalvarItem">Salvar</button>
+        <button type="button" class="b2" id="btnCancelarItem">Cancelar</button>
+        <div style="flex:1"></div>
+        <button type="button" class="b-perigo oculto" id="btnExcluirItem">Excluir</button>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:22px 0">
+    </div>
+
+    <div id="listaCatalogo">carregando...</div>
+
+    <div id="areaImportar" class="oculto" style="margin-top:20px">
+      <div class="aviso info">
+        <strong>A lista ainda não foi importada.</strong> O formulário está usando a lista embutida no
+        sistema. Clique abaixo para trazê-la para o cadastro — a partir daí você edita tudo por aqui.
+        <button type="button" class="b" id="btnImportar" style="margin-top:11px">Importar a lista atual</button>
+      </div>
+    </div>
   </div>
 </dialog>
 
@@ -579,6 +638,144 @@ $("#btnExcluir").addEventListener("click", async () => {
     btn.disabled = false; btn.textContent = "Excluir empresa";
   }
 });
+
+/* ------------------------------------- catálogo: bancos e maquinetas */
+
+// A lista que o sistema já usava. Serve só para a importação inicial.
+const PADRAO = {
+  bancos: ["Banco do Brasil","Banco do Nordeste","Banese","Bradesco","C6 Bank","Caixa Econômica",
+    "Cora","InfinitePay","Inter","Itaú","Mercado Pago","Nubank","PagBank","Santander",
+    "Sicredi","Stone"],
+  maquinetas: ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Convênio","Mulvi Pay",
+    "PagBank","Rede","Stone"]
+};
+
+const ROTULO_ABA = { bancos: "banco", maquinetas: "maquineta" };
+let abaAtual = "bancos", editandoId = null;
+
+function avisoCatalogo(msg, tipo){
+  const a = $("#avisoCatalogo");
+  a.className = "aviso " + tipo;
+  a.textContent = msg;
+}
+
+function fecharEditor(){
+  editandoId = null;
+  $("#editorItem").classList.add("oculto");
+  $("#itemNome").value = "";
+  $("#itemOrientacao").value = "";
+  $("#btnExcluirItem").classList.add("oculto");
+}
+
+function abrirEditor(id, nome, orientacao){
+  editandoId = id;
+  $("#itemNome").value = nome || "";
+  $("#itemOrientacao").value = orientacao || "";
+  $("#btnExcluirItem").classList.toggle("oculto", !id);
+  $("#editorItem").classList.remove("oculto");
+  $("#itemNome").focus();
+  $("#editorItem").scrollIntoView({ behavior:"smooth", block:"nearest" });
+}
+
+async function listarCatalogo(){
+  const alvo = $("#listaCatalogo");
+  $("#tituloCatalogo").textContent = abaAtual === "bancos" ? "Bancos" : "Maquinetas";
+  try{
+    const snap = await getDocs(collection(db, abaAtual));
+    const itens = snap.docs
+      .map(d => ({ id:d.id, ...d.data() }))
+      .sort((a,b) => (a.nome||"").localeCompare(b.nome||"", "pt-BR"));
+
+    $("#areaImportar").classList.toggle("oculto", itens.length > 0);
+
+    alvo.innerHTML = itens.length
+      ? itens.map(i => `<div class="item">
+          <div class="cresce"><strong>${esc(i.nome)}</strong><br>
+            <span class="${i.orientacao ? "comtexto" : "semtexto"}">
+              ${i.orientacao ? "com orientação" : "sem orientação"}</span></div>
+          <button type="button" class="b2" data-editar="${i.id}">Editar</button>
+        </div>`).join("")
+      : `<p style="color:var(--muted)">Nenhum ${ROTULO_ABA[abaAtual]} cadastrado.</p>`;
+
+    $$("[data-editar]").forEach(b => b.addEventListener("click", () => {
+      const i = itens.find(x => x.id === b.dataset.editar);
+      abrirEditor(i.id, i.nome, i.orientacao);
+    }));
+  }catch(err){
+    alvo.innerHTML = `<p style="color:var(--erro)">Não consegui listar: ${esc(err.message)}</p>`;
+  }
+}
+
+$$(".aba").forEach(b => b.addEventListener("click", () => {
+  abaAtual = b.dataset.aba;
+  $$(".aba").forEach(o => o.classList.toggle("ativa", o === b));
+  $("#avisoCatalogo").classList.add("oculto");
+  fecharEditor();
+  $("#listaCatalogo").innerHTML = "carregando...";
+  listarCatalogo();
+}));
+
+$("#btnNovoItem").addEventListener("click", () => abrirEditor(null, "", ""));
+$("#btnCancelarItem").addEventListener("click", fecharEditor);
+
+$("#btnSalvarItem").addEventListener("click", async () => {
+  const nome = $("#itemNome").value.trim();
+  if(!nome){ avisoCatalogo("Falta o nome.", "erro"); $("#itemNome").focus(); return; }
+
+  const btn = $("#btnSalvarItem");
+  btn.disabled = true; btn.textContent = "Salvando...";
+  const dados = { nome, orientacao: $("#itemOrientacao").value.trim() };
+  try{
+    if(editandoId) await updateDoc(doc(db, abaAtual, editandoId), dados);
+    else await addDoc(collection(db, abaAtual), { ...dados, criadoEm: serverTimestamp() });
+    avisoCatalogo(`"${nome}" salvo.`, "ok");
+    fecharEditor();
+    listarCatalogo();
+  }catch(err){
+    avisoCatalogo("Não consegui salvar: " + err.message, "erro");
+  }finally{
+    btn.disabled = false; btn.textContent = "Salvar";
+  }
+});
+
+$("#btnExcluirItem").addEventListener("click", async () => {
+  if(!editandoId) return;
+  if(!confirm(`Excluir "${$("#itemNome").value.trim()}" da lista?\n\n`
+    + `Ele deixa de aparecer para os clientes. Os checklists já respondidos não mudam.`)) return;
+  try{
+    await deleteDoc(doc(db, abaAtual, editandoId));
+    avisoCatalogo("Excluído.", "ok");
+    fecharEditor();
+    listarCatalogo();
+  }catch(err){
+    avisoCatalogo("Não consegui excluir: " + err.message, "erro");
+  }
+});
+
+$("#btnImportar").addEventListener("click", async () => {
+  const btn = $("#btnImportar");
+  btn.disabled = true; btn.textContent = "Importando...";
+  try{
+    for(const nome of PADRAO[abaAtual]){
+      await addDoc(collection(db, abaAtual), { nome, orientacao: "", criadoEm: serverTimestamp() });
+    }
+    avisoCatalogo(`${PADRAO[abaAtual].length} ${ROTULO_ABA[abaAtual]}s importados. Agora é só editar as orientações.`, "ok");
+    listarCatalogo();
+  }catch(err){
+    avisoCatalogo("Não consegui importar: " + err.message, "erro");
+  }finally{
+    btn.disabled = false; btn.textContent = "Importar a lista atual";
+  }
+});
+
+$("#btnCatalogo").addEventListener("click", () => {
+  $("#avisoCatalogo").classList.add("oculto");
+  fecharEditor();
+  $("#listaCatalogo").innerHTML = "carregando...";
+  $("#modalCatalogo").showModal();
+  listarCatalogo();
+});
+$("#btnFecharCatalogo").addEventListener("click", () => $("#modalCatalogo").close());
 
 /* ------------------------------------- empresas e links */
 

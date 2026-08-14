@@ -154,6 +154,12 @@ button{font:inherit;cursor:pointer;border-radius:10px}
 .destaque-titulo::before{content:"!";flex:none;width:21px;height:21px;border-radius:50%;
   background:#8b1a1a;color:#fff;font-size:14px;line-height:21px;text-align:center}
 .destaque-rodape{padding-top:9px;border-top:1px solid #e3c4c4;font-weight:700;font-size:13.5px}
+/* Passo a passo cadastrado pela Totali para cada banco ou maquineta. */
+.orientacao{background:#f2f7fd;border:1px solid #cbdcf5;border-left:4px solid var(--navy-600);
+  border-radius:10px;padding:13px 15px;margin-bottom:14px;font-size:14px;color:#16406e}
+.orientacao-titulo{font-weight:750;margin-bottom:7px;color:var(--navy)}
+.orientacao p{margin:0 0 8px}
+.orientacao p:last-child{margin-bottom:0}
 ol.compromisso{margin:10px 0 12px;padding-left:22px}
 ol.compromisso li{margin-bottom:4px}
 .b-baixar{display:block;width:100%;margin-top:12px;padding:13px 16px;border:1.5px solid var(--navy);
@@ -233,6 +239,8 @@ ol.compromisso li{margin-bottom:4px}
         <p class="sub" style="margin-bottom:12px">Toque em <strong>todos</strong> os bancos onde a empresa tem conta.</p>
 
         <div class="chips" id="chipsBancos"></div>
+
+        <div id="orientacoesBancos" class="oculto" style="margin-top:18px"></div>
 
         <div class="linha" style="margin:18px 0 0">
           <label class="rot" for="bancoOutro">Tem conta em algum banco que não está na lista? <span class="opc">(opcional)</span></label>
@@ -342,7 +350,8 @@ ol.compromisso li{margin-bottom:4px}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, serverTimestamp }
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, setDoc, updateDoc,
+         serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { jsPDF } from "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm";
 import { firebaseConfig, CONFIGURADO } from "./js/firebase-config.js";
@@ -358,13 +367,22 @@ if (CONFIGURADO) {
   db = getFirestore(app);
 }
 
-// Em ordem alfabética — é assim que aparece para o cliente.
-const BANCOS = ["Banco do Brasil","Banco do Nordeste","Banese","Bradesco","C6 Bank",
+// As listas moram no Firestore e são administradas pelo painel. Estas aqui são
+// só a rede de segurança: se o catálogo ainda não foi importado, ou se a leitura
+// falhar, o formulário continua funcionando com elas.
+const BANCOS_PADRAO = ["Banco do Brasil","Banco do Nordeste","Banese","Bradesco","C6 Bank",
   "Caixa Econômica","Cora","InfinitePay","Inter","Itaú","Mercado Pago","Nubank","PagBank",
   "Santander","Sicredi","Stone"];
 
-const MAQUINAS = ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Convênio","Mulvi Pay",
-  "PagBank","Rede","Stone"];
+const MAQUINAS_PADRAO = ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Convênio",
+  "Mulvi Pay","PagBank","Rede","Stone"];
+
+// { nome, orientacao } — a orientação explica como liberar acesso à contabilidade.
+let BANCOS = BANCOS_PADRAO.map(nome => ({ nome, orientacao: "" }));
+let MAQUINAS = MAQUINAS_PADRAO.map(nome => ({ nome, orientacao: "" }));
+
+const orientacaoDe = (lista, nome) =>
+  (lista.find(i => i.nome === nome) || {}).orientacao || "";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -399,11 +417,23 @@ function protocoloNovo(){
 /* ---------------------------------------------- chips */
 
 function montarChips(container, lista, nome){
-  $(container).innerHTML = lista.map((v,i) => `
+  $(container).innerHTML = lista.map((item,i) => `
     <label class="chip">
-      <input type="checkbox" name="${nome}" value="${v}" id="${nome}${i}">
-      <span>${v}</span>
+      <input type="checkbox" name="${nome}" value="${escapar(item.nome)}" id="${nome}${i}">
+      <span>${escapar(item.nome)}</span>
     </label>`).join("");
+}
+
+/** As listas vêm do cadastro, então o texto passa por aqui antes de virar HTML. */
+function escapar(v){
+  return String(v ?? "").replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+/** Quebra de linha vira parágrafo, para a orientação sair legível. */
+function textoFormatado(t){
+  return escapar(t).trim().split(/\n{2,}/)
+    .map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
 }
 const chipsMarcados = (nome) => $$(`input[name="${nome}"]:checked`).map(c => c.value);
 
@@ -421,15 +451,23 @@ function sincronizar(nome, alvo, area, molde){
       el = document.createElement("div");
       el.className = "detalhe";
       el.dataset.valor = v;
-      el.innerHTML = `<div class="nome">${v}</div>` + molde;
+      el.innerHTML = `<div class="nome">${escapar(v)}</div>`
+                   + (typeof molde === "function" ? molde(v) : molde);
     }
     cont.appendChild(el); // reposiciona na ordem dos chips
   });
   $(area).classList.toggle("oculto", !marcados.length);
 }
 
-const MOLDE_MAQUINA = `
-  <div class="dupla">
+const MOLDE_MAQUINA = (maquineta) => {
+  const passos = orientacaoDe(MAQUINAS, maquineta);
+  return (passos
+    ? `<div class="orientacao">
+         <div class="orientacao-titulo">Como liberar o acesso na ${escapar(maquineta)}</div>
+         ${textoFormatado(passos)}
+       </div>`
+    : "")
+  + `<div class="dupla">
     <div>
       <label class="rot">Login / usuário</label>
       <input data-c="login" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="E-mail ou CNPJ de acesso">
@@ -442,10 +480,26 @@ const MOLDE_MAQUINA = `
       </div>
     </div>
   </div>`;
+};
 
 function atualizarMaquinas(){
   sincronizar("maquina", "#detalhesMaquinas", "#areaAcessos", MOLDE_MAQUINA);
   aplicarEscolhaAcesso();
+}
+
+/** Alguns bancos exigem um passo do cliente; só esses aparecem aqui. */
+function atualizarOrientacoesBancos(){
+  const comTexto = chipsMarcados("banco")
+    .map(nome => ({ nome, texto: orientacaoDe(BANCOS, nome) }))
+    .filter(b => b.texto);
+
+  $("#orientacoesBancos").innerHTML = comTexto.map(b => `
+    <div class="orientacao">
+      <div class="orientacao-titulo">Como liberar o acesso no ${escapar(b.nome)}</div>
+      ${textoFormatado(b.texto)}
+    </div>`).join("");
+
+  $("#orientacoesBancos").classList.toggle("oculto", !comTexto.length);
 }
 
 /** Os campos de acesso só aparecem se houver maquineta marcada E o cliente optar por informar o acesso. */
@@ -891,10 +945,7 @@ function gerarTermoPDF(d, agora){
 
 /* ---------------------------------------------- início */
 
-montarChips("#chipsBancos", BANCOS, "banco");
-montarChips("#chipsMaquinas", MAQUINAS, "maquina");
-
-$("#chipsBancos").addEventListener("change", salvar);
+$("#chipsBancos").addEventListener("change", () => { atualizarOrientacoesBancos(); salvar(); });
 $("#chipsMaquinas").addEventListener("change", () => { atualizarMaquinas(); salvar(); });
 $("#form").addEventListener("input", salvar);
 $("#form").addEventListener("submit", e => e.preventDefault());
@@ -919,6 +970,10 @@ function jaRespondido(quando){
 }
 
 function abrirFormulario(){
+  // Os chips só são montados aqui: antes disso o catálogo ainda não chegou.
+  montarChips("#chipsBancos", BANCOS, "banco");
+  montarChips("#chipsMaquinas", MAQUINAS, "maquina");
+
   $("#telaCarregando").classList.add("oculto");
   $("#passos").classList.remove("oculto");
   $("#form").classList.remove("oculto");
@@ -930,6 +985,23 @@ function abrirFormulario(){
 
   mostrarPasso(1);
   restaurar();
+}
+
+/** Traz bancos e maquinetas do cadastro. Vazio ou com erro, mantém a lista padrão. */
+async function carregarCatalogo(){
+  for(const [colecao, destino] of [["bancos", "BANCOS"], ["maquinetas", "MAQUINAS"]]){
+    try{
+      const snap = await getDocs(collection(db, colecao));
+      if(snap.empty) continue;
+      const itens = snap.docs.map(d => ({
+        nome: (d.data().nome || "").trim(),
+        orientacao: d.data().orientacao || ""
+      })).filter(i => i.nome).sort((a,b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      if(destino === "BANCOS") BANCOS = itens; else MAQUINAS = itens;
+    }catch(e){
+      console.error("catálogo de " + colecao + " não carregou, usando a lista padrão:", e);
+    }
+  }
 }
 
 async function iniciar(){
@@ -958,6 +1030,7 @@ async function iniciar(){
       return jaRespondido(empresa.respondidoEm);
     }
 
+    await carregarCatalogo();
     abrirFormulario();
   }catch(e){
     console.error(e);
