@@ -1033,7 +1033,8 @@ async function carregarCatalogo(){
       if(snap.empty) continue;
       const itens = snap.docs.map(d => ({
         nome: (d.data().nome || "").trim(),
-        orientacao: d.data().orientacao || ""
+        orientacao: d.data().orientacao || "",
+        semCredencial: !!d.data().semCredencial
       })).filter(i => i.nome).sort((a,b) => a.nome.localeCompare(b.nome, "pt-BR"));
       if(destino === "BANCOS") BANCOS = itens; else MAQUINAS = itens;
     }catch(e){
