@@ -580,7 +580,8 @@ async function abrir(id){
   const inf = r.informativo || {};
   const simNao = (v) => v === "sim" ? "<b>Sim</b>" : v === "nao" ? "Não" : "—";
   html += `<h4>Informativo</h4>` + linhas([
-    ["Tem relatório de contas pagas", simNao(inf.contasPagas)],
+    ["Tem controle de contas pagas", simNao(inf.contasPagas)],
+    ["Sistema usado", esc(inf.sistemaContasPagas)],
     ["Tem empréstimo ou financiamento", simNao(inf.emprestimo)],
     ["Tem aplicações financeiras", simNao(inf.aplicacoes)]
   ]);
@@ -1192,7 +1193,7 @@ $("#btnCsv").addEventListener("click", () => {
 
   const linhasCsv = [["Protocolo","Status","Recebido em","Empresa","Fantasia","CNPJ","Regime",
     "Tem banco?","Bancos","Outros bancos","Usa maquineta?","Maquinetas","Outra maquineta",
-    "Relatórios","Relatório de contas pagas","Empréstimo/financiamento","Aplicações financeiras","Observações"]];
+    "Relatórios","Controle de contas pagas","Sistema de contas pagas","Empréstimo/financiamento","Aplicações financeiras","Observações"]];
 
   const simNaoCsv = (v) => v === "sim" ? "Sim" : v === "nao" ? "Não" : "";
 
@@ -1204,6 +1205,7 @@ $("#btnCsv").addEventListener("click", () => {
       r.temMaquineta ? "Sim" : "Não", (r.maquinetas || []).join(", "), r.maquinetaOutra,
       r.formaDocumentos,
       simNaoCsv(r.informativo?.contasPagas),
+      r.informativo?.sistemaContasPagas,
       simNaoCsv(r.informativo?.emprestimo),
       simNaoCsv(r.informativo?.aplicacoes),
       r.observacoes

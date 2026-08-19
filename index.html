@@ -330,16 +330,25 @@ ol.compromisso li{margin-bottom:4px}
 
       <div class="pergunta">
         <label class="rot">
-          A empresa possui relatório de contas pagas?
-          <button type="button" class="ajuda" data-ajuda="ajudaContasPagas" aria-label="O que é relatório de contas pagas">?</button>
+          A empresa possui um controle de contas pagas?
+          <button type="button" class="ajuda" data-ajuda="ajudaContasPagas" aria-label="O que é controle de contas pagas">?</button>
         </label>
         <div class="explicacao oculto" id="ajudaContasPagas">
-          É um sistema ou planilha que registra os pagamentos da empresa, como pagamento de
-          fornecedores, despesas, impostos, salários e outras obrigações.
+          Os pagamentos da empresa, como pagamento de fornecedores, despesas, impostos, salários e
+          outras obrigações, se forem lançados em algum sistema ou planilha, precisamos ter acesso
+          a esses relatórios.
         </div>
-        <div class="opcoes" style="margin-bottom:0">
+        <div class="opcoes">
           <div class="opcao" data-grupo="contasPagas" data-valor="sim">Sim</div>
           <div class="opcao" data-grupo="contasPagas" data-valor="nao">Não</div>
+        </div>
+
+        <div class="linha oculto" id="areaSistemaContasPagas" style="margin-bottom:0">
+          <label class="rot" for="sistemaContasPagas">Qual sistema ou ferramenta é utilizada para o controle de contas pagas?</label>
+          <input id="sistemaContasPagas" autocomplete="off"
+                 placeholder="Nome do sistema, ou planilha em Excel">
+          <p class="dica">Informe o nome do sistema utilizado ou, caso o controle seja feito
+            manualmente, informe se utiliza uma planilha em Excel.</p>
         </div>
       </div>
 
@@ -577,7 +586,8 @@ const AREAS = {
   banco:   [ ["#areaBancos", "sim"] ],
   maquina: [ ["#areaMaquinas", "sim"] ],
   acesso:  [],   // depende também dos chips, então quem resolve é aplicarEscolhaAcesso()
-  contasPagas: [], emprestimo: [], aplicacoes: []
+  contasPagas: [ ["#areaSistemaContasPagas", "sim"] ],
+  emprestimo: [], aplicacoes: []
 };
 
 $$(".opcao").forEach(op => {
@@ -698,6 +708,14 @@ function validarPasso(){
       $(`.opcao[data-grupo="${faltando[0]}"]`).scrollIntoView({ behavior:"smooth", block:"center" });
       return false;
     }
+
+    // Quem tem controle precisa dizer qual: é o que define como pediremos o relatório.
+    if(escolha.contasPagas === "sim" && !$("#sistemaContasPagas").value.trim()){
+      $("#sistemaContasPagas").classList.add("ruim");
+      alerta("Informe qual sistema ou planilha a empresa usa para o controle de contas pagas.");
+      $("#sistemaContasPagas").focus();
+      return false;
+    }
   }
   return true;
 }
@@ -752,6 +770,7 @@ function coletar(){
     formaDocumentos: temMaquina ? (ROTULO_ACESSO[escolha.acesso] || "") : "",
     informativo: {
       contasPagas: escolha.contasPagas || "",
+      sistemaContasPagas: escolha.contasPagas === "sim" ? $("#sistemaContasPagas").value.trim() : "",
       emprestimo: escolha.emprestimo || "",
       aplicacoes: escolha.aplicacoes || ""
     },
@@ -784,6 +803,7 @@ function restaurar(){
   restaurando = true;
 
   $("#bancoOutro").value = d.bancoOutro || "";
+  $("#sistemaContasPagas").value = (d.informativo || {}).sistemaContasPagas || "";
   $("#maquinaOutra").value = d.maquinaOutra || "";
   $("#obs").value = d.observacoes || "";
 
