@@ -110,6 +110,16 @@ textarea{min-height:86px;resize:vertical}
 .opcao.on{border-color:var(--gold);background:#fffaf0;box-shadow:inset 0 0 0 1px var(--gold)}
 .opcao small{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
 
+/* Perguntas do Informativo */
+.pergunta{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--line)}
+.pergunta:last-of-type{border-bottom:none;padding-bottom:4px;margin-bottom:0}
+.pergunta .rot{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:15px}
+.ajuda{flex:none;width:21px;height:21px;border-radius:50%;border:none;background:var(--navy-600);
+  color:#fff;font-weight:800;font-size:13px;line-height:21px;padding:0;cursor:pointer}
+.ajuda:hover{background:var(--navy)}
+.explicacao{background:#f2f7fd;border:1px solid #cbdcf5;border-left:4px solid var(--navy-600);
+  border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:#16406e}
+
 /* ---------------- chips ---------------- */
 .chips{display:flex;flex-wrap:wrap;gap:9px}
 .chip{position:relative}
@@ -225,6 +235,7 @@ ol.compromisso li{margin-bottom:4px}
   <div class="passos oculto" id="passos" aria-hidden="true">
     <div class="passo-item"><div class="passo-barra"></div><div class="passo-nome">Bancos</div></div>
     <div class="passo-item"><div class="passo-barra"></div><div class="passo-nome">Maquinetas</div></div>
+    <div class="passo-item"><div class="passo-barra"></div><div class="passo-nome">Informativo</div></div>
   </div>
 
   <div id="alerta" class="aviso erro oculto" role="alert"></div>
@@ -310,15 +321,48 @@ ol.compromisso li{margin-bottom:4px}
           </div>
         </div>
 
-        <div class="linha" style="margin-top:4px">
-          <label class="rot" for="obs">Quer nos contar mais alguma coisa? <span class="opc">(opcional)</span></label>
-          <textarea id="obs" placeholder="Ex.: vou encerrar a conta do Bradesco; a maquineta da Cielo é da loja antiga; tenho dúvida sobre..."></textarea>
+      </div>
+    </section>
+
+    <!-- ============ PASSO 3 ============ -->
+    <section class="cartao oculto" data-passo="3">
+      <h2>Informativo</h2>
+      <p class="sub">Três perguntas rápidas para sabermos o que esperar da sua movimentação.</p>
+
+      <div class="pergunta">
+        <label class="rot">
+          A empresa possui contas pagas?
+          <button type="button" class="ajuda" data-ajuda="ajudaContasPagas" aria-label="O que são contas pagas">?</button>
+        </label>
+        <div class="explicacao oculto" id="ajudaContasPagas">
+          <strong>Contas pagas</strong> são os pagamentos já realizados pela empresa durante o período,
+          como pagamento de fornecedores, despesas, impostos, salários e outras obrigações.
+        </div>
+        <div class="opcoes" style="margin-bottom:0">
+          <div class="opcao" data-grupo="contasPagas" data-valor="sim">Sim</div>
+          <div class="opcao" data-grupo="contasPagas" data-valor="nao">Não</div>
         </div>
       </div>
 
-      <div id="obsSemMaquina" class="linha oculto" style="margin-bottom:0">
-        <label class="rot" for="obs2">Quer nos contar mais alguma coisa? <span class="opc">(opcional)</span></label>
-        <textarea id="obs2" placeholder="Ex.: vou encerrar a conta do Bradesco; tenho dúvida sobre..."></textarea>
+      <div class="pergunta">
+        <label class="rot">A empresa possui empréstimo?</label>
+        <div class="opcoes" style="margin-bottom:0">
+          <div class="opcao" data-grupo="emprestimo" data-valor="sim">Sim</div>
+          <div class="opcao" data-grupo="emprestimo" data-valor="nao">Não</div>
+        </div>
+      </div>
+
+      <div class="pergunta">
+        <label class="rot">A empresa possui financiamento?</label>
+        <div class="opcoes" style="margin-bottom:0">
+          <div class="opcao" data-grupo="financiamento" data-valor="sim">Sim</div>
+          <div class="opcao" data-grupo="financiamento" data-valor="nao">Não</div>
+        </div>
+      </div>
+
+      <div class="linha" style="margin:22px 0 0">
+        <label class="rot" for="obs">Quer nos contar mais alguma coisa? <span class="opc">(opcional)</span></label>
+        <textarea id="obs" placeholder="Ex.: vou encerrar a conta do Bradesco; a maquineta da Cielo é da loja antiga; tenho dúvida sobre..."></textarea>
       </div>
     </section>
 
@@ -397,7 +441,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
 let passo = 1;
-const TOTAL = 2;
+const TOTAL = 3;
 
 // A empresa vem do link (?e=...), cadastrada pela Totali. Sem ela não há formulário.
 let empresa = null, empresaId = null;
@@ -526,13 +570,15 @@ function aplicarEscolhaAcesso(){
 
 /* ---------------------------------------------- opção sim/não */
 
-const escolha = { banco:null, maquina:null, acesso:null };
+const escolha = { banco:null, maquina:null, acesso:null,
+                  contasPagas:null, emprestimo:null, financiamento:null };
 
 // Que área aparece para cada resposta: [seletor, resposta que a mostra]
 const AREAS = {
   banco:   [ ["#areaBancos", "sim"] ],
-  maquina: [ ["#areaMaquinas", "sim"], ["#obsSemMaquina", "nao"] ],
-  acesso:  []   // depende também dos chips, então quem resolve é aplicarEscolhaAcesso()
+  maquina: [ ["#areaMaquinas", "sim"] ],
+  acesso:  [],   // depende também dos chips, então quem resolve é aplicarEscolhaAcesso()
+  contasPagas: [], emprestimo: [], financiamento: []
 };
 
 $$(".opcao").forEach(op => {
@@ -546,6 +592,11 @@ $$(".opcao").forEach(op => {
     salvar();
   });
 });
+
+/* botão (?) das perguntas do Informativo */
+$$(".ajuda").forEach(b => b.addEventListener("click", () => {
+  $("#" + b.dataset.ajuda).classList.toggle("oculto");
+}));
 
 /* mostrar/ocultar senha */
 document.addEventListener("click", (e) => {
@@ -634,6 +685,21 @@ function validarPasso(){
       }
     }
   }
+
+  if(passo === 3){
+    const PERGUNTAS = {
+      contasPagas: "contas pagas",
+      emprestimo: "empréstimo",
+      financiamento: "financiamento"
+    };
+    const faltando = Object.keys(PERGUNTAS).filter(g => !escolha[g]);
+    if(faltando.length){
+      alerta("Responda Sim ou Não em: <b>"
+        + faltando.map(g => PERGUNTAS[g]).join(", ") + "</b>.");
+      $(`.opcao[data-grupo="${faltando[0]}"]`).scrollIntoView({ behavior:"smooth", block:"center" });
+      return false;
+    }
+  }
   return true;
 }
 
@@ -685,7 +751,12 @@ function coletar(){
     maquinas,
     maquinaOutra: temMaquina ? $("#maquinaOutra").value.trim() : "",
     formaDocumentos: temMaquina ? (ROTULO_ACESSO[escolha.acesso] || "") : "",
-    observacoes: (temMaquina ? $("#obs").value : $("#obs2").value).trim()
+    informativo: {
+      contasPagas: escolha.contasPagas || "",
+      emprestimo: escolha.emprestimo || "",
+      financiamento: escolha.financiamento || ""
+    },
+    observacoes: $("#obs").value.trim()
   };
 }
 
@@ -716,7 +787,6 @@ function restaurar(){
   $("#bancoOutro").value = d.bancoOutro || "";
   $("#maquinaOutra").value = d.maquinaOutra || "";
   $("#obs").value = d.observacoes || "";
-  $("#obs2").value = d.observacoes || "";
 
   Object.keys(AREAS).forEach(grupo => {
     const v = s.escolha && s.escolha[grupo];
@@ -788,6 +858,7 @@ async function enviar(){
         maquinetas: (dados.maquinas || []).map(m => m.maquina),
         maquinetaOutra: dados.maquinaOutra,
         formaDocumentos: dados.formaDocumentos,
+        informativo: dados.informativo,
         observacoes: dados.observacoes,
         // O arquivo em si fica na subcoleção "termo"; aqui vai só a ficha dele,
         // para a listagem do painel continuar leve.

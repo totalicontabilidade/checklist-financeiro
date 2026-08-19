@@ -57,6 +57,16 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 .check{display:flex;align-items:flex-start;gap:9px;font-size:14px;line-height:1.5}
 .check input{margin-top:3px;width:17px;height:17px;accent-color:var(--navy-600);flex:none}
 .linha{margin-bottom:15px}
+.credencial{border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:10px;
+  padding:12px 14px;margin-bottom:10px;background:#fcfdff;font-size:14px}
+.cred-topo{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.cred-topo strong{flex:1;color:var(--navy)}
+.cred-topo .b2{padding:6px 13px;font-size:13px}
+.cred-nota{color:var(--muted)}
+.dupla-cred{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:520px){ .dupla-cred{grid-template-columns:1fr} }
+.dupla-cred .rot{font-size:12.5px;margin-bottom:4px}
+.dupla-cred input{padding:9px 11px;font-size:14px}
 .linkbox{display:flex;gap:8px;margin-top:8px}
 .linkbox input{font-family:Consolas,monospace;font-size:12.5px;background:#f7f9fc}
 .tag-aguardando{background:#fdf1dc;color:var(--alerta)}
@@ -567,6 +577,14 @@ async function abrir(id){
         ["Relatórios", tagForma(r.formaDocumentos)]
       ]);
 
+  const inf = r.informativo || {};
+  const simNao = (v) => v === "sim" ? "<b>Sim</b>" : v === "nao" ? "Não" : "—";
+  html += `<h4>Informativo</h4>` + linhas([
+    ["Tem contas pagas", simNao(inf.contasPagas)],
+    ["Tem empréstimo", simNao(inf.emprestimo)],
+    ["Tem financiamento", simNao(inf.financiamento)]
+  ]);
+
   html += `<h4>Observações</h4><p>${esc(r.observacoes)}</p>`;
 
   // Credenciais: só admin, e buscadas na hora — não ficam na listagem.
@@ -585,14 +603,72 @@ async function abrir(id){
   }
   try{
     const snap = await getDocs(collection(db, "checklists", r.id, "acessos"));
-    alvo.innerHTML = snap.empty
-      ? `<p style="color:var(--muted)">Nenhuma credencial informada — o cliente optou por enviar os documentos.</p>`
-      : linhas(snap.docs.map(d => {
-          const a = d.data();
-          return [esc(a.maquineta), a.modoProprio
-            ? "cliente confirmou o cadastro no modo contador — sem login e senha"
-            : `login <b>${esc(a.login)}</b> · senha <b>${esc(a.senha)}</b>`];
-        }));
+    if(snap.empty){
+      alvo.innerHTML = `<p style="color:var(--muted)">Nenhuma credencial informada — o cliente optou por enviar os documentos.</p>`;
+      return;
+    }
+
+    alvo.innerHTML = snap.docs.map(d => {
+      const a = d.data();
+      return `<div class="credencial" data-acesso="${d.id}">
+        <div class="cred-topo">
+          <strong>${esc(a.maquineta)}</strong>
+          ${a.modoProprio ? "" : `<button type="button" class="b2" data-editar-cred="${d.id}">Editar</button>`}
+        </div>
+        ${a.modoProprio
+          ? `<div class="cred-nota">Cliente confirmou o cadastro no modo contador — sem login e senha.</div>`
+          : `<div class="cred-ver">login <b>${esc(a.login)}</b> · senha <b>${esc(a.senha)}</b></div>
+             <div class="cred-editar oculto">
+               <div class="dupla-cred">
+                 <div><label class="rot">Login</label>
+                   <input type="text" data-cred="login" value="${esc(a.login)}" autocomplete="off"></div>
+                 <div><label class="rot">Senha</label>
+                   <input type="text" data-cred="senha" value="${esc(a.senha)}" autocomplete="off"></div>
+               </div>
+               <div style="display:flex;gap:8px;margin-top:9px">
+                 <button type="button" class="b" data-salvar-cred="${d.id}">Salvar</button>
+                 <button type="button" class="b2" data-cancelar-cred="${d.id}">Cancelar</button>
+               </div>
+             </div>`}
+      </div>`;
+    }).join("");
+
+    const bloco = (id) => alvo.querySelector(`[data-acesso="${CSS.escape(id)}"]`);
+    const alternar = (id, editando) => {
+      const b = bloco(id);
+      b.querySelector(".cred-ver").classList.toggle("oculto", editando);
+      b.querySelector(".cred-editar").classList.toggle("oculto", !editando);
+    };
+
+    alvo.querySelectorAll("[data-editar-cred]").forEach(b =>
+      b.addEventListener("click", () => alternar(b.dataset.editarCred, true)));
+
+    alvo.querySelectorAll("[data-cancelar-cred]").forEach(b =>
+      b.addEventListener("click", () => {
+        const orig = snap.docs.find(d => d.id === b.dataset.cancelarCred).data();
+        const bl = bloco(b.dataset.cancelarCred);
+        bl.querySelector('[data-cred="login"]').value = orig.login || "";
+        bl.querySelector('[data-cred="senha"]').value = orig.senha || "";
+        alternar(b.dataset.cancelarCred, false);
+      }));
+
+    alvo.querySelectorAll("[data-salvar-cred]").forEach(b =>
+      b.addEventListener("click", async () => {
+        const id = b.dataset.salvarCred, bl = bloco(id);
+        b.disabled = true; b.textContent = "Salvando...";
+        try{
+          await updateDoc(doc(db, "checklists", r.id, "acessos", id), {
+            login: bl.querySelector('[data-cred="login"]').value.trim(),
+            senha: bl.querySelector('[data-cred="senha"]').value.trim(),
+            atualizadoEm: serverTimestamp()
+          });
+          abrir(r.id);   // recarrega o detalhe já com o valor novo
+        }catch(err){
+          alerta("Não consegui salvar a credencial: " + err.message);
+        }finally{
+          b.disabled = false; b.textContent = "Salvar";
+        }
+      }));
   }catch(err){
     alvo.innerHTML = `<p style="color:var(--erro)">Sem permissão para ver as credenciais.</p>`;
   }
@@ -1116,7 +1192,9 @@ $("#btnCsv").addEventListener("click", () => {
 
   const linhasCsv = [["Protocolo","Status","Recebido em","Empresa","Fantasia","CNPJ","Regime",
     "Tem banco?","Bancos","Outros bancos","Usa maquineta?","Maquinetas","Outra maquineta",
-    "Relatórios","Observações"]];
+    "Relatórios","Contas pagas","Empréstimo","Financiamento","Observações"]];
+
+  const simNaoCsv = (v) => v === "sim" ? "Sim" : v === "nao" ? "Não" : "";
 
   for(const r of lista){
     linhasCsv.push([
@@ -1124,7 +1202,11 @@ $("#btnCsv").addEventListener("click", () => {
       r.empresa?.nome, r.empresa?.fantasia, r.empresa?.cnpj, r.empresa?.regime,
       r.temBanco ? "Sim" : "Não", (r.bancos || []).join(", "), r.bancoOutro,
       r.temMaquineta ? "Sim" : "Não", (r.maquinetas || []).join(", "), r.maquinetaOutra,
-      r.formaDocumentos, r.observacoes
+      r.formaDocumentos,
+      simNaoCsv(r.informativo?.contasPagas),
+      simNaoCsv(r.informativo?.emprestimo),
+      simNaoCsv(r.informativo?.financiamento),
+      r.observacoes
     ]);
   }
 
