@@ -326,17 +326,16 @@ ol.compromisso li{margin-bottom:4px}
 
     <!-- ============ PASSO 3 ============ -->
     <section class="cartao oculto" data-passo="3">
-      <h2>Informativo</h2>
-      <p class="sub">Três perguntas rápidas para sabermos o que esperar da sua movimentação.</p>
+      <h2 style="margin-bottom:20px">Informativo</h2>
 
       <div class="pergunta">
         <label class="rot">
-          A empresa possui contas pagas?
-          <button type="button" class="ajuda" data-ajuda="ajudaContasPagas" aria-label="O que são contas pagas">?</button>
+          A empresa possui relatório de contas pagas?
+          <button type="button" class="ajuda" data-ajuda="ajudaContasPagas" aria-label="O que é relatório de contas pagas">?</button>
         </label>
         <div class="explicacao oculto" id="ajudaContasPagas">
-          <strong>Contas pagas</strong> são os pagamentos já realizados pela empresa durante o período,
-          como pagamento de fornecedores, despesas, impostos, salários e outras obrigações.
+          É um sistema ou planilha que registra os pagamentos da empresa, como pagamento de
+          fornecedores, despesas, impostos, salários e outras obrigações.
         </div>
         <div class="opcoes" style="margin-bottom:0">
           <div class="opcao" data-grupo="contasPagas" data-valor="sim">Sim</div>
@@ -345,7 +344,7 @@ ol.compromisso li{margin-bottom:4px}
       </div>
 
       <div class="pergunta">
-        <label class="rot">A empresa possui empréstimo?</label>
+        <label class="rot">A empresa possui empréstimo ou financiamento bancário?</label>
         <div class="opcoes" style="margin-bottom:0">
           <div class="opcao" data-grupo="emprestimo" data-valor="sim">Sim</div>
           <div class="opcao" data-grupo="emprestimo" data-valor="nao">Não</div>
@@ -353,10 +352,10 @@ ol.compromisso li{margin-bottom:4px}
       </div>
 
       <div class="pergunta">
-        <label class="rot">A empresa possui financiamento?</label>
+        <label class="rot">A empresa possui aplicações financeiras?</label>
         <div class="opcoes" style="margin-bottom:0">
-          <div class="opcao" data-grupo="financiamento" data-valor="sim">Sim</div>
-          <div class="opcao" data-grupo="financiamento" data-valor="nao">Não</div>
+          <div class="opcao" data-grupo="aplicacoes" data-valor="sim">Sim</div>
+          <div class="opcao" data-grupo="aplicacoes" data-valor="nao">Não</div>
         </div>
       </div>
 
@@ -571,14 +570,14 @@ function aplicarEscolhaAcesso(){
 /* ---------------------------------------------- opção sim/não */
 
 const escolha = { banco:null, maquina:null, acesso:null,
-                  contasPagas:null, emprestimo:null, financiamento:null };
+                  contasPagas:null, emprestimo:null, aplicacoes:null };
 
 // Que área aparece para cada resposta: [seletor, resposta que a mostra]
 const AREAS = {
   banco:   [ ["#areaBancos", "sim"] ],
   maquina: [ ["#areaMaquinas", "sim"] ],
   acesso:  [],   // depende também dos chips, então quem resolve é aplicarEscolhaAcesso()
-  contasPagas: [], emprestimo: [], financiamento: []
+  contasPagas: [], emprestimo: [], aplicacoes: []
 };
 
 $$(".opcao").forEach(op => {
@@ -688,9 +687,9 @@ function validarPasso(){
 
   if(passo === 3){
     const PERGUNTAS = {
-      contasPagas: "contas pagas",
-      emprestimo: "empréstimo",
-      financiamento: "financiamento"
+      contasPagas: "relatório de contas pagas",
+      emprestimo: "empréstimo ou financiamento bancário",
+      aplicacoes: "aplicações financeiras"
     };
     const faltando = Object.keys(PERGUNTAS).filter(g => !escolha[g]);
     if(faltando.length){
@@ -754,7 +753,7 @@ function coletar(){
     informativo: {
       contasPagas: escolha.contasPagas || "",
       emprestimo: escolha.emprestimo || "",
-      financiamento: escolha.financiamento || ""
+      aplicacoes: escolha.aplicacoes || ""
     },
     observacoes: $("#obs").value.trim()
   };
