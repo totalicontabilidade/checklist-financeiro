@@ -74,8 +74,11 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.status == 'novo'
                     && request.resource.data.protocolo is string
+                    // Só exige que exista. O nome vem do cadastro feito pela equipe,
+                    // não do cliente — validar tamanho aqui derrubava o envio de
+                    // empresas com nome curto, e o cliente via "erro de conexão".
                     && request.resource.data.empresa.nome is string
-                    && request.resource.data.empresa.nome.size() > 2
+                    && request.resource.data.empresa.nome.size() > 0
                     && request.resource.data.empresa.cnpj is string
                     && request.resource.data.keys().hasAll(
                          ['protocolo','status','empresa','bancos','maquinetas','formaDocumentos'])

@@ -1019,6 +1019,16 @@ async function apagarEmpresa(id){
 
 $("#formEmpresa").addEventListener("submit", async (e) => {
   e.preventDefault();
+  // Nome muito curto costuma ser cadastro de teste, e é o que o cliente vê no
+  // cabeçalho do checklist e no termo em PDF.
+  for(const [campo, rotulo] of [["#empNome","Nome / fantasia"], ["#empRazao","Razão social"]]){
+    if($(campo).value.trim().length < 3){
+      avisoEmpresas(`${rotulo} precisa ter pelo menos 3 caracteres.`, "erro");
+      $(campo).focus();
+      return;
+    }
+  }
+
   if(!cnpjValido($("#empCnpj").value)){
     avisoEmpresas("Esse CNPJ não confere. Confira os números.", "erro");
     $("#empCnpj").focus();

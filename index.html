@@ -936,9 +936,19 @@ async function enviar(){
     console.error(e);
     btn.disabled = false;
     btn.textContent = "Tentar enviar de novo";
-    alerta(`Não conseguimos enviar agora — pode ser a conexão. Toque em <b>Tentar enviar de novo</b>.<br>
-            Se continuar, fale com a Totali e informe o protocolo <b>${protocolo}</b>.
-            Seus dados continuam salvos aqui no aparelho.`);
+
+    // Recusa do banco não é problema de conexão, e insistir não resolve.
+    // Dizer "pode ser a conexão" nesse caso manda o cliente tentar em vão.
+    const recusado = String(e && (e.code || e.message || e)).includes("permission-denied");
+
+    alerta(recusado
+      ? `Este link não está aceitando o envio, e não é problema do seu preenchimento nem da sua
+         internet — é algo no cadastro da sua empresa.<br>
+         <b>Fale com a Totali e informe o protocolo ${protocolo}.</b>
+         Suas respostas continuam salvas aqui no aparelho, então nada se perde.`
+      : `Não conseguimos enviar agora — pode ser a conexão. Toque em <b>Tentar enviar de novo</b>.<br>
+         Se continuar, fale com a Totali e informe o protocolo <b>${protocolo}</b>.
+         Seus dados continuam salvos aqui no aparelho.`);
   }
 }
 
