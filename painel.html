@@ -68,6 +68,12 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 @media(max-width:520px){ .dupla-cred{grid-template-columns:1fr} }
 .dupla-cred .rot{font-size:12.5px;margin-bottom:4px}
 .dupla-cred input{padding:9px 11px;font-size:14px}
+.opcoes{display:grid;grid-template-columns:1fr 1fr;gap:7px 14px;margin:9px 0 2px}
+@media(max-width:520px){ .opcoes{grid-template-columns:1fr} }
+.opc{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--navy);cursor:pointer}
+.opc input{width:17px;height:17px;flex:none;margin:0}
+#respostasEditar .rot{margin-top:15px}
+#respostasEditar h4:first-of-type{margin-top:20px}
 .linkbox{display:flex;gap:8px;margin-top:8px}
 .linkbox input{font-family:Consolas,monospace;font-size:12.5px;background:#f7f9fc}
 .tag-aguardando{background:#fdf1dc;color:var(--alerta)}
@@ -416,6 +422,10 @@ function esc(v){
     ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
 
+// esc() troca vazio por travessao, o que e bom no texto e pessimo dentro de um
+// campo de formulario: o usuario apagaria o "—" antes de digitar.
+const escV = (v) => v ? esc(v) : "";
+
 function dataBR(r){
   const iso = r.criadoEm?.toDate?.()?.toISOString() || r.enviadoEm;
   if(!iso) return "—";
@@ -429,6 +439,14 @@ const tagStatus = (s) => {
   const k = ROTULO[s] ? s : "novo";
   return `<span class="tag ${CLASSE[k]}">${ROTULO[k]}</span>`;
 };
+// Os valores têm de ser idênticos aos que o formulário grava, senão o filtro da
+// listagem e a etiqueta abaixo param de reconhecer a resposta.
+const FORMAS = [
+  { valor: "",                             rotulo: "— não informado —" },
+  { valor: "Informar os dados de acesso",  rotulo: "Cliente informa os dados de acesso" },
+  { valor: "Enviar os documentos todo mês", rotulo: "Cliente envia os documentos todo mês" }
+];
+
 const tagForma = (f) => !f ? "—"
   : f.indexOf("Enviar") === 0
     ? '<span class="tag tag-envio">Cliente envia</span>'
@@ -547,6 +565,25 @@ $("#filtroForma").addEventListener("change", render);
 const linhas = (pares) =>
   `<dl class="kv">` + pares.map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("") + `</dl>`;
 
+// Catalogo de bancos e maquinetas: o painel ja tem a tela de manutencao, mas o
+// detalhe precisa da lista para montar as caixas de marcacao. Busca uma vez so.
+// Mesma regra do formulário: o nome da maquineta vira id do documento de acesso.
+const chaveSegura = (s) => String(s).replace(/[\/\.#\[\]\*]/g, "-").trim() || "item";
+
+let catalogo = null;
+async function catalogoDoDetalhe(){
+  if(catalogo) return catalogo;
+  const nomes = async (colecao) => {
+    try{
+      const snap = await getDocs(collection(db, colecao));
+      return snap.docs.map(d => (d.data().nome || "").trim()).filter(Boolean)
+                 .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }catch(err){ console.error("catalogo de " + colecao + " nao carregou:", err); return []; }
+  };
+  catalogo = { bancos: await nomes("bancos"), maquinetas: await nomes("maquinetas") };
+  return catalogo;
+}
+
 async function abrir(id){
   atual = registros.find(r => r.id === id);
   if(!atual) return;
@@ -562,17 +599,18 @@ async function abrir(id){
       ["CNPJ", esc(e.cnpj)],
       ["Regime tributário", esc(e.regime)],
       ["Protocolo", esc(r.protocolo)],
-      ["Recebido em", dataBR(r)]
+      ["Recebido em", dataBR(r)],
+      ...(r.atualizadoPor ? [["Editado pela equipe", esc(r.atualizadoPor)]] : [])
     ]) + `</div>
 
     <div id="empresaEditar" class="oculto">
       <div class="dupla-cred">
         <div><label class="rot">Razão social</label>
-          <input type="text" data-emp="nome" value="${esc(e.nome)}" autocomplete="off"></div>
+          <input type="text" data-emp="nome" value="${escV(e.nome)}" autocomplete="off"></div>
         <div><label class="rot">Nome fantasia</label>
-          <input type="text" data-emp="fantasia" value="${esc(e.fantasia)}" autocomplete="off"></div>
+          <input type="text" data-emp="fantasia" value="${escV(e.fantasia)}" autocomplete="off"></div>
         <div><label class="rot">CNPJ</label>
-          <input type="text" data-emp="cnpj" value="${esc(e.cnpj)}" autocomplete="off"></div>
+          <input type="text" data-emp="cnpj" value="${escV(e.cnpj)}" autocomplete="off"></div>
         <div><label class="rot">Regime tributário</label>
           <select data-emp="regime">
             ${REGIMES.map(x => `<option ${x === e.regime ? "selected" : ""}>${esc(x)}</option>`).join("")}
@@ -585,7 +623,33 @@ async function abrir(id){
       </div>
     </div>`;
 
-  html += `<h4>Bancos</h4>`;
+  const inf = r.informativo || {};
+  const simNao = (v) => v === "sim" ? "<b>Sim</b>" : v === "nao" ? "Não" : "—";
+  const cat = await catalogoDoDetalhe();
+
+  // Caixas de marcação do catálogo. O que o cliente marcou continua na lista
+  // mesmo que tenha saído do catálogo depois — senão editar apagaria a resposta.
+  const opcoes = (chave, doCatalogo, marcados) => {
+    const todos = [...new Set([...(doCatalogo || []), ...(marcados || [])])]
+                    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    if(!todos.length)
+      return `<p class="dica">Nenhum item cadastrado em "Bancos e maquinetas".</p>`;
+    return `<div class="opcoes" data-lista="${chave}">` + todos.map(n =>
+      `<label class="opc"><input type="checkbox" value="${esc(n)}"
+        ${(marcados || []).includes(n) ? "checked" : ""}> ${esc(n)}</label>`).join("") + `</div>`;
+  };
+  const simNaoSelect = (campo, v) => `<select data-inf="${campo}">
+      <option value=""    ${!v            ? "selected" : ""}>— não respondeu —</option>
+      <option value="sim" ${v === "sim"   ? "selected" : ""}>Sim</option>
+      <option value="nao" ${v === "nao"   ? "selected" : ""}>Não</option>
+    </select>`;
+  const temSim = (v) => v !== false;
+
+  html += `<h4>Bancos
+      <button type="button" class="b2 mini" id="btnEditarRespostas">Editar respostas</button>
+    </h4>
+    <div id="respostasVer">`;
+
   html += r.temBanco === false
     ? `<p style="color:var(--muted)">Cliente informou que não tem conta bancária.</p>`
     : linhas([
@@ -602,14 +666,56 @@ async function abrir(id){
         ["Relatórios", tagForma(r.formaDocumentos)]
       ]);
 
-  const inf = r.informativo || {};
-  const simNao = (v) => v === "sim" ? "<b>Sim</b>" : v === "nao" ? "Não" : "—";
   html += `<h4>Informativo</h4>` + linhas([
     ["Tem controle de contas pagas", simNao(inf.contasPagas)],
     ["Sistema usado", esc(inf.sistemaContasPagas)],
     ["Tem empréstimo ou financiamento", simNao(inf.emprestimo)],
     ["Tem aplicações financeiras", simNao(inf.aplicacoes)]
   ]);
+
+  html += `</div>
+
+    <div id="respostasEditar" class="oculto">
+      <label class="rot">Tem conta bancária?</label>
+      <select data-resp="temBanco">
+        <option value="sim" ${temSim(r.temBanco)  ? "selected" : ""}>Sim</option>
+        <option value="nao" ${!temSim(r.temBanco) ? "selected" : ""}>Não</option>
+      </select>
+      ${opcoes("bancos", cat.bancos, r.bancos)}
+      <label class="rot">Outros bancos (texto livre)</label>
+      <input type="text" data-resp="bancoOutro" value="${escV(r.bancoOutro)}" autocomplete="off">
+
+      <h4>Maquinetas</h4>
+      <label class="rot">Usa maquineta?</label>
+      <select data-resp="temMaquineta">
+        <option value="sim" ${temSim(r.temMaquineta)  ? "selected" : ""}>Sim</option>
+        <option value="nao" ${!temSim(r.temMaquineta) ? "selected" : ""}>Não</option>
+      </select>
+      ${opcoes("maquinetas", cat.maquinetas, r.maquinetas)}
+      <label class="rot">Outra maquineta (texto livre)</label>
+      <input type="text" data-resp="maquinetaOutra" value="${escV(r.maquinetaOutra)}" autocomplete="off">
+      <label class="rot">Como a Totali recebe os relatórios</label>
+      <select data-resp="formaDocumentos">
+        ${FORMAS.map(f => `<option value="${esc(f.valor)}"
+            ${f.valor === (r.formaDocumentos || "") ? "selected" : ""}>${esc(f.rotulo)}</option>`).join("")}
+      </select>
+
+      <h4>Informativo</h4>
+      <label class="rot">Tem controle de contas pagas?</label>
+      ${simNaoSelect("contasPagas", inf.contasPagas)}
+      <label class="rot">Sistema usado</label>
+      <input type="text" data-inf="sistemaContasPagas" value="${escV(inf.sistemaContasPagas)}" autocomplete="off">
+      <label class="rot">Tem empréstimo ou financiamento?</label>
+      ${simNaoSelect("emprestimo", inf.emprestimo)}
+      <label class="rot">Tem aplicações financeiras?</label>
+      ${simNaoSelect("aplicacoes", inf.aplicacoes)}
+
+      <p class="dica">O termo em PDF não muda: ele registra o que o cliente declarou no envio.</p>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button type="button" class="b"  id="btnSalvarRespostas">Salvar respostas</button>
+        <button type="button" class="b2" id="btnCancelarRespostas">Cancelar</button>
+      </div>
+    </div>`;
 
   html += `<h4>Observações do cliente</h4><p>${esc(r.observacoes)}</p>`;
 
@@ -647,7 +753,8 @@ async function abrir(id){
 
     b.disabled = true; b.textContent = "Salvando...";
     try{
-      await updateDoc(doc(db, "checklists", r.id), { empresa, atualizadoEm: serverTimestamp() });
+      await updateDoc(doc(db, "checklists", r.id), {
+        empresa, atualizadoEm: serverTimestamp(), atualizadoPor: auth.currentUser?.email || "" });
 
       // Mantém o cadastro em dia: sem isso, o proximo checklist da empresa
       // voltaria com o regime antigo.
@@ -665,6 +772,56 @@ async function abrir(id){
     }catch(err){
       alerta("Não consegui salvar os dados da empresa: " + err.message);
       b.disabled = false; b.textContent = "Salvar";
+    }
+  });
+
+  /* --- edicao das respostas do cliente --- */
+  const verRespostas = (editando) => {
+    $("#respostasVer").classList.toggle("oculto", editando);
+    $("#respostasEditar").classList.toggle("oculto", !editando);
+    $("#btnEditarRespostas").classList.toggle("oculto", editando);
+  };
+  $("#btnEditarRespostas").addEventListener("click", () => verRespostas(true));
+  $("#btnCancelarRespostas").addEventListener("click", () => abrir(r.id));
+
+  $("#btnSalvarRespostas").addEventListener("click", async () => {
+    const b = $("#btnSalvarRespostas");
+    const campo = (n) => $(`[data-resp="${n}"]`).value.trim();
+    const marcados = (chave) => {
+      const caixa = $(`.opcoes[data-lista="${chave}"]`);
+      return caixa ? [...caixa.querySelectorAll("input:checked")].map(i => i.value) : [];
+    };
+    const contasPagas = $('[data-inf="contasPagas"]').value;
+    const temBanco = campo("temBanco") === "sim";
+    const temMaquineta = campo("temMaquineta") === "sim";
+
+    // Quem responde "não" não deixa resto pendurado: os campos do bloco somem juntos.
+    const mudanca = {
+      temBanco,
+      bancos:          temBanco ? marcados("bancos") : [],
+      bancoOutro:      temBanco ? campo("bancoOutro") : "",
+      temMaquineta,
+      maquinetas:      temMaquineta ? marcados("maquinetas") : [],
+      maquinetaOutra:  temMaquineta ? campo("maquinetaOutra") : "",
+      formaDocumentos: temMaquineta ? campo("formaDocumentos") : "",
+      informativo: {
+        contasPagas,
+        sistemaContasPagas: contasPagas === "sim"
+          ? $('[data-inf="sistemaContasPagas"]').value.trim() : "",
+        emprestimo: $('[data-inf="emprestimo"]').value,
+        aplicacoes: $('[data-inf="aplicacoes"]').value
+      },
+      atualizadoEm: serverTimestamp(),
+      atualizadoPor: auth.currentUser?.email || ""
+    };
+
+    b.disabled = true; b.textContent = "Salvando...";
+    try{
+      await updateDoc(doc(db, "checklists", r.id), mudanca);
+      abrir(r.id);
+    }catch(err){
+      alerta("Não consegui salvar as respostas: " + err.message);
+      b.disabled = false; b.textContent = "Salvar respostas";
     }
   });
 
@@ -692,12 +849,37 @@ async function abrir(id){
   }
   try{
     const snap = await getDocs(collection(db, "checklists", r.id, "acessos"));
-    if(snap.empty){
+
+    // Maquineta acrescentada pela equipe na edição não tem documento de acesso;
+    // sem isto não haveria onde guardar o login dela.
+    const semAcesso = (r.maquinetas || [])
+      .filter(m => !snap.docs.some(d => d.id === chaveSegura(m)));
+
+    const faltantes = semAcesso.map(m => `<div class="credencial"
+        data-acesso="${esc(chaveSegura(m))}" data-nome="${esc(m)}">
+        <div class="cred-topo"><strong>${esc(m)}</strong>
+          <button type="button" class="b2" data-editar-cred="${esc(chaveSegura(m))}">Informar acesso</button></div>
+        <div class="cred-ver" style="color:var(--muted)">sem login e senha registrados</div>
+        <div class="cred-editar oculto">
+          <div class="dupla-cred">
+            <div><label class="rot">Login</label>
+              <input type="text" data-cred="login" value="" autocomplete="off"></div>
+            <div><label class="rot">Senha</label>
+              <input type="text" data-cred="senha" value="" autocomplete="off"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:9px">
+            <button type="button" class="b"  data-salvar-cred="${esc(chaveSegura(m))}">Salvar</button>
+            <button type="button" class="b2" data-cancelar-cred="${esc(chaveSegura(m))}">Cancelar</button>
+          </div>
+        </div>
+      </div>`).join("");
+
+    if(snap.empty && !faltantes){
       alvo.innerHTML = `<p style="color:var(--muted)">Nenhuma credencial informada — o cliente optou por enviar os documentos.</p>`;
       return;
     }
 
-    alvo.innerHTML = snap.docs.map(d => {
+    alvo.innerHTML = faltantes + snap.docs.map(d => {
       const a = d.data();
       return `<div class="credencial" data-acesso="${d.id}">
         <div class="cred-topo">
@@ -710,9 +892,9 @@ async function abrir(id){
              <div class="cred-editar oculto">
                <div class="dupla-cred">
                  <div><label class="rot">Login</label>
-                   <input type="text" data-cred="login" value="${esc(a.login)}" autocomplete="off"></div>
+                   <input type="text" data-cred="login" value="${escV(a.login)}" autocomplete="off"></div>
                  <div><label class="rot">Senha</label>
-                   <input type="text" data-cred="senha" value="${esc(a.senha)}" autocomplete="off"></div>
+                   <input type="text" data-cred="senha" value="${escV(a.senha)}" autocomplete="off"></div>
                </div>
                <div style="display:flex;gap:8px;margin-top:9px">
                  <button type="button" class="b" data-salvar-cred="${d.id}">Salvar</button>
@@ -734,7 +916,7 @@ async function abrir(id){
 
     alvo.querySelectorAll("[data-cancelar-cred]").forEach(b =>
       b.addEventListener("click", () => {
-        const orig = snap.docs.find(d => d.id === b.dataset.cancelarCred).data();
+        const orig = snap.docs.find(d => d.id === b.dataset.cancelarCred)?.data() || {};
         const bl = bloco(b.dataset.cancelarCred);
         bl.querySelector('[data-cred="login"]').value = orig.login || "";
         bl.querySelector('[data-cred="senha"]').value = orig.senha || "";
@@ -746,11 +928,15 @@ async function abrir(id){
         const id = b.dataset.salvarCred, bl = bloco(id);
         b.disabled = true; b.textContent = "Salvando...";
         try{
-          await updateDoc(doc(db, "checklists", r.id, "acessos", id), {
+          // merge: serve tanto para corrigir uma credencial quanto para criar a
+          // de uma maquineta que a equipe acrescentou depois do envio.
+          await setDoc(doc(db, "checklists", r.id, "acessos", id), {
+            maquineta: bl.dataset.nome || bl.querySelector("strong").textContent,
+            modoProprio: false,
             login: bl.querySelector('[data-cred="login"]').value.trim(),
             senha: bl.querySelector('[data-cred="senha"]').value.trim(),
             atualizadoEm: serverTimestamp()
-          });
+          }, { merge: true });
           abrir(r.id);   // recarrega o detalhe já com o valor novo
         }catch(err){
           alerta("Não consegui salvar a credencial: " + err.message);

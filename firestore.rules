@@ -92,18 +92,29 @@ service cloud.firestore {
 
       allow read: if ehEquipe();
 
-      // A equipe mexe no acompanhamento e no cadastro da empresa (regime muda,
-      // razao social e corrigida), mas nunca no que o cliente respondeu:
-      // bancos, maquinetas, informativo e observacoes seguem imutaveis.
+      // A equipe corrige o que o cliente respondeu errado (banco esquecido, regime
+      // trocado, informativo mal marcado) sem precisar pedir novo preenchimento.
+      // Fora da lista ficam os campos que dao identidade ao envio: protocolo,
+      // empresaId, criadoEm, enviadoEm, a ficha do termo e as observacoes
+      // escritas pelo proprio cliente. O PDF do termo continua imutavel na
+      // subcolecao, entao ele segue valendo como o que foi declarado no envio.
       allow update: if ehEquipe()
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['status','anotacaoInterna','atualizadoEm','empresa'])
+                         .hasOnly(['status','anotacaoInterna','atualizadoEm','atualizadoPor',
+                                   'empresa','temBanco','bancos','bancoOutro','temMaquineta',
+                                   'maquinetas','maquinetaOutra','formaDocumentos','informativo'])
                     && request.resource.data.empresa.nome is string
-                    && request.resource.data.empresa.nome.size() > 0;
+                    && request.resource.data.empresa.nome.size() > 0
+                    && (!('bancos' in request.resource.data)
+                        || request.resource.data.bancos is list)
+                    && (!('maquinetas' in request.resource.data)
+                        || request.resource.data.maquinetas is list);
 
       allow delete: if ehAdmin();
 
       // Credenciais das maquinetas — o dado mais sensível do sistema.
+      // Create fica aberto ao cliente anonimo (e o envio do formulario) e tambem
+      // atende a equipe quando ela acrescenta uma maquineta que faltou.
       match /acessos/{maquineta} {
         allow create: if request.auth != null;
         allow read:   if ehAdmin();
