@@ -92,10 +92,14 @@ service cloud.firestore {
 
       allow read: if ehEquipe();
 
-      // A equipe só mexe no acompanhamento, nunca no que o cliente respondeu.
+      // A equipe mexe no acompanhamento e no cadastro da empresa (regime muda,
+      // razao social e corrigida), mas nunca no que o cliente respondeu:
+      // bancos, maquinetas, informativo e observacoes seguem imutaveis.
       allow update: if ehEquipe()
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['status','anotacaoInterna','atualizadoEm']);
+                         .hasOnly(['status','anotacaoInterna','atualizadoEm','empresa'])
+                    && request.resource.data.empresa.nome is string
+                    && request.resource.data.empresa.nome.size() > 0;
 
       allow delete: if ehAdmin();
 

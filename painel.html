@@ -38,6 +38,7 @@ button{font:inherit;cursor:pointer;border-radius:9px}
 .b:hover{background:var(--navy-600)}
 .b:disabled{opacity:.6;cursor:progress}
 .b2{background:#fff;color:var(--navy);border:1.5px solid var(--line);padding:10px 16px;font-weight:650}
+.b2.mini{padding:4px 11px;font-size:12.5px;font-weight:600;margin-left:10px;vertical-align:middle}
 .b2:hover{background:#f0f3f8}
 .b-perigo{background:#fff;color:var(--erro);border:1.5px solid #f3c3bf;padding:10px 16px;font-weight:650}
 .b-perigo:hover{background:#fdecea}
@@ -551,14 +552,38 @@ async function abrir(id){
   if(!atual) return;
   const r = atual;
 
-  let html = `<h4>Empresa</h4>` + linhas([
-    ["Razão social", esc(r.empresa?.nome)],
-    ["Nome fantasia", esc(r.empresa?.fantasia)],
-    ["CNPJ", esc(r.empresa?.cnpj)],
-    ["Regime tributário", esc(r.empresa?.regime)],
-    ["Protocolo", esc(r.protocolo)],
-    ["Recebido em", dataBR(r)]
-  ]);
+  const e = r.empresa || {};
+  let html = `<h4>Empresa
+      <button type="button" class="b2 mini" id="btnEditarEmpresa">Editar</button>
+    </h4>
+    <div id="empresaVer">` + linhas([
+      ["Razão social", esc(e.nome)],
+      ["Nome fantasia", esc(e.fantasia)],
+      ["CNPJ", esc(e.cnpj)],
+      ["Regime tributário", esc(e.regime)],
+      ["Protocolo", esc(r.protocolo)],
+      ["Recebido em", dataBR(r)]
+    ]) + `</div>
+
+    <div id="empresaEditar" class="oculto">
+      <div class="dupla-cred">
+        <div><label class="rot">Razão social</label>
+          <input type="text" data-emp="nome" value="${esc(e.nome)}" autocomplete="off"></div>
+        <div><label class="rot">Nome fantasia</label>
+          <input type="text" data-emp="fantasia" value="${esc(e.fantasia)}" autocomplete="off"></div>
+        <div><label class="rot">CNPJ</label>
+          <input type="text" data-emp="cnpj" value="${esc(e.cnpj)}" autocomplete="off"></div>
+        <div><label class="rot">Regime tributário</label>
+          <select data-emp="regime">
+            ${REGIMES.map(x => `<option ${x === e.regime ? "selected" : ""}>${esc(x)}</option>`).join("")}
+          </select></div>
+      </div>
+      <p class="dica">Muda também no cadastro da empresa, então o próximo checklist já vem certo.</p>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="b" id="btnSalvarEmpresa">Salvar</button>
+        <button type="button" class="b2" id="btnCancelarEmpresa">Cancelar</button>
+      </div>
+    </div>`;
 
   html += `<h4>Bancos</h4>`;
   html += r.temBanco === false
@@ -586,7 +611,13 @@ async function abrir(id){
     ["Tem aplicações financeiras", simNao(inf.aplicacoes)]
   ]);
 
-  html += `<h4>Observações</h4><p>${esc(r.observacoes)}</p>`;
+  html += `<h4>Observações do cliente</h4><p>${esc(r.observacoes)}</p>`;
+
+  html += `<h4>Comentário interno</h4>
+    <textarea id="anotacao" rows="4"
+      placeholder="Anotações da equipe sobre esta empresa: combinados, pendências, particularidades...">${esc(r.anotacaoInterna || "")}</textarea>
+    <p class="dica">Só a equipe da Totali vê. O cliente nunca tem acesso a este campo.</p>
+    <button type="button" class="b2" id="btnSalvarAnotacao">Salvar comentário</button>`;
 
   // Credenciais: só admin, e buscadas na hora — não ficam na listagem.
   html += `<h4>Acessos das maquinetas</h4><div id="acessos">carregando...</div>`;
@@ -596,6 +627,63 @@ async function abrir(id){
   $("#btnTermo").classList.toggle("oculto", !r.termo);
   $("#btnExcluir").classList.toggle("oculto", !ehAdmin);
   $("#modal").showModal();
+
+  /* --- edicao dos dados da empresa --- */
+  const verEmpresa = (editando) => {
+    $("#empresaVer").classList.toggle("oculto", editando);
+    $("#empresaEditar").classList.toggle("oculto", !editando);
+    $("#btnEditarEmpresa").classList.toggle("oculto", editando);
+  };
+  $("#btnEditarEmpresa").addEventListener("click", () => verEmpresa(true));
+  $("#btnCancelarEmpresa").addEventListener("click", () => abrir(r.id));
+
+  $("#btnSalvarEmpresa").addEventListener("click", async () => {
+    const b = $("#btnSalvarEmpresa");
+    const campo = (n) => $(`[data-emp="${n}"]`).value.trim();
+    const empresa = { nome: campo("nome"), fantasia: campo("fantasia"),
+                      cnpj: campo("cnpj"), regime: campo("regime") };
+
+    if(!empresa.nome){ alerta("A razão social não pode ficar vazia."); return; }
+
+    b.disabled = true; b.textContent = "Salvando...";
+    try{
+      await updateDoc(doc(db, "checklists", r.id), { empresa, atualizadoEm: serverTimestamp() });
+
+      // Mantém o cadastro em dia: sem isso, o proximo checklist da empresa
+      // voltaria com o regime antigo.
+      if(r.empresaId){
+        try{
+          await updateDoc(doc(db, "empresas", r.empresaId), {
+            nome: empresa.fantasia || empresa.nome,
+            razaoSocial: empresa.nome,
+            cnpj: empresa.cnpj,
+            regime: empresa.regime
+          });
+        }catch(err){ console.error("cadastro da empresa nao atualizou:", err); }
+      }
+      abrir(r.id);
+    }catch(err){
+      alerta("Não consegui salvar os dados da empresa: " + err.message);
+      b.disabled = false; b.textContent = "Salvar";
+    }
+  });
+
+  /* --- comentario interno --- */
+  $("#btnSalvarAnotacao").addEventListener("click", async () => {
+    const b = $("#btnSalvarAnotacao");
+    b.disabled = true; b.textContent = "Salvando...";
+    try{
+      await updateDoc(doc(db, "checklists", r.id), {
+        anotacaoInterna: $("#anotacao").value.trim(),
+        atualizadoEm: serverTimestamp()
+      });
+      b.textContent = "Comentário salvo";
+      setTimeout(() => { b.textContent = "Salvar comentário"; b.disabled = false; }, 1800);
+    }catch(err){
+      alerta("Não consegui salvar o comentário: " + err.message);
+      b.disabled = false; b.textContent = "Salvar comentário";
+    }
+  });
 
   const alvo = $("#acessos");
   if(!ehAdmin){
@@ -752,6 +840,8 @@ const PADRAO = {
   maquinetas: ["Cielo","Getnet","InfinitePay","Mercado Pago","Mulvi Convênio","Mulvi Pay",
     "PagBank","Rede","Stone"]
 };
+
+const REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "MEI", "Imune / Isenta"];
 
 const ROTULO_ABA = { bancos: "banco", maquinetas: "maquineta" };
 let abaAtual = "bancos", editandoId = null;
@@ -1203,7 +1293,7 @@ $("#btnCsv").addEventListener("click", () => {
 
   const linhasCsv = [["Protocolo","Status","Recebido em","Empresa","Fantasia","CNPJ","Regime",
     "Tem banco?","Bancos","Outros bancos","Usa maquineta?","Maquinetas","Outra maquineta",
-    "Relatórios","Controle de contas pagas","Sistema de contas pagas","Empréstimo/financiamento","Aplicações financeiras","Observações"]];
+    "Relatórios","Controle de contas pagas","Sistema de contas pagas","Empréstimo/financiamento","Aplicações financeiras","Observações","Comentário interno"]];
 
   const simNaoCsv = (v) => v === "sim" ? "Sim" : v === "nao" ? "Não" : "";
 
@@ -1218,7 +1308,8 @@ $("#btnCsv").addEventListener("click", () => {
       r.informativo?.sistemaContasPagas,
       simNaoCsv(r.informativo?.emprestimo),
       simNaoCsv(r.informativo?.aplicacoes),
-      r.observacoes
+      r.observacoes,
+      r.anotacaoInterna
     ]);
   }
 
